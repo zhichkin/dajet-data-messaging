@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.32106.194
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dajet-data-messaging", "dajet-data-messaging\dajet-data-messaging.csproj", "{0B077AFE-F2E2-4F96-A2C0-C1993685551B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dajet-data-messaging", "dajet-data-messaging\dajet-data-messaging.csproj", "{0B077AFE-F2E2-4F96-A2C0-C1993685551B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tests", "tests\tests.csproj", "{D93733D4-5AF1-46B5-AE3A-5C258D16B5D9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{0B077AFE-F2E2-4F96-A2C0-C1993685551B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0B077AFE-F2E2-4F96-A2C0-C1993685551B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0B077AFE-F2E2-4F96-A2C0-C1993685551B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D93733D4-5AF1-46B5-AE3A-5C258D16B5D9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D93733D4-5AF1-46B5-AE3A-5C258D16B5D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D93733D4-5AF1-46B5-AE3A-5C258D16B5D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D93733D4-5AF1-46B5-AE3A-5C258D16B5D9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

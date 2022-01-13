@@ -1,43 +1,59 @@
 ﻿using DaJet.Metadata;
 using DaJet.Metadata.Model;
-using System;
 using System.Collections.Generic;
 
 namespace DaJet.Data
 {
     public sealed class QueryBuilder
     {
+        #region "CONSTANTS"
+
         private const string QUEUE_NAME_PLACEHOLDER = "{QUEUE_NAME}";
         private const string TABLE_NAME_PLACEHOLDER = "{TABLE_NAME}";
         private const string TRIGGER_NAME_PLACEHOLDER = "{TRIGGER_NAME}";
         private const string SEQUENCE_NAME_PLACEHOLDER = "{SEQUENCE_NAME}";
-        private const string QUEUE_TRIGGER_NAME_TEMPLATE = "DaJet_{QUEUE_NAME}_insert";
-        private const string QUEUE_SEQUENCE_NAME_TEMPLATE = "DaJet_{QUEUE_NAME}_sequence";
+        private const string FUNCTION_NAME_PLACEHOLDER = "{FUNCTION_NAME}";
+        private const string MESSAGE_COUNT_PLACEHOLDER = "{MESSAGE_COUNT}";
+        private const string QUEUE_TRIGGER_NAME_TEMPLATE = "tr_dajet_{QUEUE_NAME}_insert";
+        private const string QUEUE_SEQUENCE_NAME_TEMPLATE = "so_dajet_{QUEUE_NAME}";
+        private const string QUEUE_FUNCTION_NAME_TEMPLATE = "fn_dajet_{QUEUE_NAME}_insert()";
+
+        #endregion
 
         private readonly DatabaseProvider _provider;
         public QueryBuilder(DatabaseProvider provider)
         {
             _provider = provider;
         }
+
+        #region "QUEUE CONFIGURATION SCRIPTS"
+
         private string CreateSequenceName(in ApplicationObject queue)
         {
-            return QUEUE_SEQUENCE_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.Name);
+            return QUEUE_SEQUENCE_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.Name).ToLower();
+        }
+        private string CreateFunctionName(in ApplicationObject queue)
+        {
+            return QUEUE_FUNCTION_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.Name).ToLower();
         }
         private string CreateInsertTriggerName(in ApplicationObject queue)
         {
-            return QUEUE_TRIGGER_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.Name);
+            return QUEUE_TRIGGER_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.Name).ToLower();
         }
         private Dictionary<string, string> GetScriptConfigurationValues(in ApplicationObject queue)
         {
             string TABLE_NAME = queue.TableName;
             string TRIGGER_NAME = CreateInsertTriggerName(in queue);
             string SEQUENCE_NAME = CreateSequenceName(in queue);
+            string FUNCTION_NAME = CreateFunctionName(in queue);
 
             Dictionary<string, string> values = new Dictionary<string, string>()
             {
                 { TABLE_NAME_PLACEHOLDER, TABLE_NAME },
                 { TRIGGER_NAME_PLACEHOLDER, TRIGGER_NAME },
-                { SEQUENCE_NAME_PLACEHOLDER, SEQUENCE_NAME }
+                { SEQUENCE_NAME_PLACEHOLDER, SEQUENCE_NAME },
+                { FUNCTION_NAME_PLACEHOLDER, FUNCTION_NAME },
+                { MESSAGE_COUNT_PLACEHOLDER, 1000.ToString() }
             };
 
             foreach (MetadataProperty property in queue.Properties)
@@ -70,47 +86,39 @@ namespace DaJet.Data
             }
         }
 
+        #endregion
+
         #region "INCOMING QUEUE INSERT SCRIPTS"
 
         private const string MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT {TABLE_NAME} " +
-            "({НомерСообщения}, {Идентификатор}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
-            "SELECT NEXT VALUE FOR DaJetIncomingQueueSequence, " +
-            "@Идентификатор, @Отправитель, @ТипОперации, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
+            "({НомерСообщения}, {Идентификатор}, {Заголовки}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "SELECT NEXT VALUE FOR {SEQUENCE_NAME}, " +
+            "@Идентификатор, @Заголовки, @Отправитель, @ТипОперации, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
 
         private const string PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT INTO {TABLE_NAME} " +
-            "({НомерСообщения}, {Идентификатор}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
-            "SELECT CAST(nextval('DaJetIncomingQueueSequence') AS numeric(19,0)), " +
-            "@Идентификатор, CAST(@Отправитель AS mvarchar), CAST(@ТипОперации AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
+            "({НомерСообщения}, {Идентификатор}, {Заголовки}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "SELECT CAST(nextval('{SEQUENCE_NAME}') AS numeric(19,0)), " +
+            "@Идентификатор, CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипОперации AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
             "CAST(@ТелоСообщения AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
 
-        private string MS_INCOMING_QUEUE_INSERT_SCRIPT = string.Empty;
-        private string PG_INCOMING_QUEUE_INSERT_SCRIPT = string.Empty;
-        public string IncomingQueueInsertScript
+        public string BuildIncomingQueueInsertScript(in ApplicationObject queue)
         {
-            get
-            {
-                if (_provider == DatabaseProvider.SQLServer)
-                {
-                    return MS_INCOMING_QUEUE_INSERT_SCRIPT;
-                }
-                else
-                {
-                    return PG_INCOMING_QUEUE_INSERT_SCRIPT;
-                }
-            }
-        }
-        private void BuildIncomingQueueInsertScript(ApplicationObject queue, Type template)
-        {
+            List<string> templates;
+
             if (_provider == DatabaseProvider.SQLServer)
             {
-                MS_INCOMING_QUEUE_INSERT_SCRIPT = ConfigureScript(MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE, template, queue);
+                templates = new List<string>() { MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE };
             }
             else
             {
-                PG_INCOMING_QUEUE_INSERT_SCRIPT = ConfigureScript(PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE, template, queue);
+                templates = new List<string>() { PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE };
             }
+
+            ConfigureScripts(in templates, in queue, out List<string> scripts);
+
+            return scripts[0];
         }
 
         #endregion
@@ -119,53 +127,36 @@ namespace DaJet.Data
 
         private const string MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
             "WITH cte AS (SELECT TOP ({MESSAGE_COUNT}) " +
-            "{НомерСообщения} AS [НомерСообщения], {Идентификатор} AS [Идентификатор], {ДатаВремя} AS [ДатаВремя], {Отправитель} AS [Отправитель], " +
-            "{Получатели} AS [Получатели], {ТипОперации} AS [ТипОперации], {ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения] " +
+            "{НомерСообщения} AS [НомерСообщения], {Идентификатор} AS [Идентификатор], {Заголовки} AS [Заголовки], {Отправитель} AS [Отправитель], " +
+            "{Получатели} AS [Получатели], {ТипОперации} AS [ТипОперации], {ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], {ДатаВремя} AS [ДатаВремя] " +
             "FROM {TABLE_NAME} WITH (ROWLOCK, READPAST) ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC) " +
-            "DELETE cte OUTPUT deleted.[НомерСообщения], deleted.[Идентификатор], deleted.[ДатаВремя], deleted.[Отправитель], " +
-            "deleted.[Получатели], deleted.[ТипОперации], deleted.[ТипСообщения], deleted.[ТелоСообщения];";
+            "DELETE cte OUTPUT deleted.[НомерСообщения], deleted.[Идентификатор], deleted.[Заголовки], deleted.[Отправитель], " +
+            "deleted.[Получатели], deleted.[ТипОперации], deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[ДатаВремя];";
 
         private const string PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
             "WITH cte AS (SELECT {НомерСообщения}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC LIMIT {MESSAGE_COUNT}) " +
             "DELETE FROM {TABLE_NAME} t USING cte WHERE t.{НомерСообщения} = cte.{НомерСообщения} AND t.{Идентификатор} = cte.{Идентификатор} " +
-            "RETURNING t.{НомерСообщения} AS \"НомерСообщения\", t.{Идентификатор} AS \"Идентификатор\", " +
-            "t.{ДатаВремя} AS \"ДатаВремя\", CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", " +
-            "CAST(t.{Получатели} AS varchar) AS \"Получатели\", CAST(t.{ТипОперации} AS varchar) AS \"ТипОперации\", " +
-            "CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\";";
+            "RETURNING t.{НомерСообщения} AS \"НомерСообщения\", t.{Идентификатор} AS \"Идентификатор\", t.{Заголовки} AS \"Заголовки\", " +
+            "CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", CAST(t.{Получатели} AS varchar) AS \"Получатели\", " +
+            "CAST(t.{ТипОперации} AS varchar) AS \"ТипОперации\", CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
+            "CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", t.{ДатаВремя} AS \"ДатаВремя\";";
 
-        private string MS_OUTGOING_QUEUE_SELECT_SCRIPT = string.Empty;
-        private string PG_OUTGOING_QUEUE_SELECT_SCRIPT = string.Empty;
-        public string OutgoingQueueSelectScript
+        public string BuildOutgoingQueueSelectScript(in ApplicationObject queue)
         {
-            get
-            {
-                if (_provider == DatabaseProvider.SQLServer)
-                {
-                    return MS_OUTGOING_QUEUE_SELECT_SCRIPT;
-                }
-                else
-                {
-                    return PG_OUTGOING_QUEUE_SELECT_SCRIPT;
-                }
-            }
-        }
-        private void BuildOutgoingQueueSelectScript(ApplicationObject queue, Type template, int messageCount)
-        {
-            if (messageCount == 0)
-            {
-                messageCount = 1000;
-            }
+            List<string> templates;
 
             if (_provider == DatabaseProvider.SQLServer)
             {
-                MS_OUTGOING_QUEUE_SELECT_SCRIPT = ConfigureScript(MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE, template, queue);
-                MS_OUTGOING_QUEUE_SELECT_SCRIPT = MS_OUTGOING_QUEUE_SELECT_SCRIPT.Replace("{MESSAGE_COUNT}", messageCount.ToString());
+                templates = new List<string>() { MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE };
             }
             else
             {
-                PG_OUTGOING_QUEUE_SELECT_SCRIPT = ConfigureScript(PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE, template, queue);
-                PG_OUTGOING_QUEUE_SELECT_SCRIPT = PG_OUTGOING_QUEUE_SELECT_SCRIPT.Replace("{MESSAGE_COUNT}", messageCount.ToString());
+                templates = new List<string>() { PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE };
             }
+
+            ConfigureScripts(in templates, in queue, out List<string> scripts);
+
+            return scripts[0];
         }
 
         #endregion

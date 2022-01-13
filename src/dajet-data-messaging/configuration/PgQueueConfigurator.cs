@@ -5,27 +5,26 @@ using System.Collections.Generic;
 
 namespace DaJet.Data.Messaging
 {
-    public sealed class MsQueueConfigurator : IQueueConfigurator
+    public sealed class PgQueueConfigurator : IQueueConfigurator
     {
         private readonly QueryBuilder _builder;
         private readonly QueryExecutor _executor;
-
-        public MsQueueConfigurator(in string connectionString)
+        public PgQueueConfigurator(in string connectionString)
         {
             ConnectionString = connectionString;
 
-            _builder = new QueryBuilder(DatabaseProvider.SQLServer);
-            _executor = new QueryExecutor(DatabaseProvider.SQLServer, in connectionString);
+            _builder = new QueryBuilder(DatabaseProvider.PostgreSQL);
+            _executor = new QueryExecutor(DatabaseProvider.PostgreSQL, in connectionString);
         }
         public string ConnectionString { get; }
-        
+
         #region "CONFIGURE SEQUENCE"
 
-        private const string SEQUENCE_EXISTS_SCRIPT = "SELECT 1 FROM sys.sequences WHERE name = '{SEQUENCE_NAME}';";
+        private const string SEQUENCE_EXISTS_SCRIPT =
+            "SELECT 1 FROM information_schema.sequences WHERE LOWER(sequence_name) = LOWER('{SEQUENCE_NAME}');";
 
         private const string CREATE_SEQUENCE_SCRIPT =
-            "IF NOT EXISTS(SELECT 1 FROM sys.sequences WHERE name = '{SEQUENCE_NAME}') " +
-            "BEGIN CREATE SEQUENCE {SEQUENCE_NAME} AS numeric(19,0) START WITH 1 INCREMENT BY 1; END;";
+            "CREATE SEQUENCE IF NOT EXISTS {SEQUENCE_NAME} AS bigint INCREMENT BY 1 START WITH 1 CACHE 1;";
 
         private bool SequenceExists(in ApplicationObject queue)
         {
@@ -33,7 +32,7 @@ namespace DaJet.Data.Messaging
             {
                 SEQUENCE_EXISTS_SCRIPT
             };
-            
+
             _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);
 
             int result = _executor.ExecuteScalar<int>(scripts[0], 10);
@@ -46,14 +45,11 @@ namespace DaJet.Data.Messaging
         #region "ENUMERATE QUEUE SCRIPTS"
 
         private const string ENUMERATE_QUEUE_SCRIPT =
-            "SELECT {НомерСообщения} AS [НомерСообщения], {Идентификатор} AS [Идентификатор], " +
-            "NEXT VALUE FOR {SEQUENCE_NAME} OVER(ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC) AS [НомерСообщения] " +
-            "INTO #{TABLE_NAME}_EnumCopy " +
-            "FROM {TABLE_NAME} WITH (TABLOCKX, HOLDLOCK); " +
-            "UPDATE T SET T.{НомерСообщения} = C.[НомерСообщения] FROM {TABLE_NAME} AS T " +
-            "INNER JOIN #{TABLE_NAME}_EnumCopy AS C ON T.{НомерСообщения} = C.[НомерСообщения] AND T.{Идентификатор} = C.[Идентификатор];";
-
-        private const string DROP_ENUMERATION_TABLE = "DROP TABLE #{TABLE_NAME}_EnumCopy;";
+            "LOCK TABLE {TABLE_NAME} IN ACCESS EXCLUSIVE MODE; " +
+            "WITH cte AS (SELECT {НомерСообщения}, {Идентификатор}, nextval('{SEQUENCE_NAME}') AS msgno " +
+            "FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC) " +
+            "UPDATE {TABLE_NAME} SET {НомерСообщения} = CAST(cte.msgno AS numeric(19, 0)) " +
+            "FROM cte WHERE {TABLE_NAME}.{НомерСообщения} = cte.{НомерСообщения} AND {TABLE_NAME}.{Идентификатор} = cte.{Идентификатор};";
 
         #endregion
 
@@ -80,31 +76,26 @@ namespace DaJet.Data.Messaging
             List<string> templates = new List<string>
             {
                 CREATE_SEQUENCE_SCRIPT,
-                ENUMERATE_QUEUE_SCRIPT,
-                DROP_ENUMERATION_TABLE
+                ENUMERATE_QUEUE_SCRIPT
             };
 
             _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);
 
             _executor.TxExecuteNonQuery(in scripts, 60);
         }
-        
+
         #endregion
 
         #region "CONFIGURE OUTGOING QUEUE"
 
-        private const string DROP_OUTGOING_TRIGGER_SCRIPT =
-            "IF OBJECT_ID('{TRIGGER_NAME}', 'TR') IS NOT NULL BEGIN DROP TRIGGER {TRIGGER_NAME} END;";
+        private const string CREATE_OUTGOING_FUNCTION_SCRIPT =
+            "CREATE OR REPLACE FUNCTION {FUNCTION_NAME} RETURNS trigger AS $$ BEGIN " +
+            "NEW.{НомерСообщения} := CAST(nextval('{SEQUENCE_NAME}') AS numeric(19,0)); RETURN NEW; END $$ LANGUAGE 'plpgsql';";
+
+        private const string DROP_OUTGOING_TRIGGER_SCRIPT = "DROP TRIGGER IF EXISTS {TRIGGER_NAME} ON {TABLE_NAME};";
 
         private const string CREATE_OUTGOING_TRIGGER_SCRIPT =
-            "CREATE TRIGGER {TRIGGER_NAME} ON {TABLE_NAME} INSTEAD OF INSERT NOT FOR REPLICATION AS " +
-            "INSERT {TABLE_NAME} " +
-            "({НомерСообщения}, {Идентификатор}, {Отправитель}, {Получатели}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ТипОперации}) " +
-            "SELECT NEXT VALUE FOR {SEQUENCE_NAME}, " +
-            "i.{Идентификатор}, i.{Отправитель}, i.{Получатели}, i.{ТипСообщения}, i.{ТелоСообщения}, i.{ДатаВремя}, i.{ТипОперации} " +
-            "FROM inserted AS i;";
-
-        private const string ENABLE_OUTGOING_TRIGGER_SCRIPT = "ENABLE TRIGGER {TRIGGER_NAME} ON {TABLE_NAME};";
+            "CREATE TRIGGER {TRIGGER_NAME} BEFORE INSERT ON {TABLE_NAME} FOR EACH ROW EXECUTE PROCEDURE {FUNCTION_NAME};";
 
         public void ConfigureOutgoingMessageQueue(in ApplicationObject queue, out List<string> errors)
         {
@@ -128,10 +119,9 @@ namespace DaJet.Data.Messaging
             {
                 CREATE_SEQUENCE_SCRIPT,
                 ENUMERATE_QUEUE_SCRIPT,
-                DROP_ENUMERATION_TABLE,
+                CREATE_OUTGOING_FUNCTION_SCRIPT,
                 DROP_OUTGOING_TRIGGER_SCRIPT,
-                CREATE_OUTGOING_TRIGGER_SCRIPT,
-                ENABLE_OUTGOING_TRIGGER_SCRIPT
+                CREATE_OUTGOING_TRIGGER_SCRIPT
             };
 
             _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);

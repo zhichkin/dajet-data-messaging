@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DaJet.Data.Messaging
@@ -12,13 +13,13 @@ namespace DaJet.Data.Messaging
         /// <summary>
         /// "НомерСообщения" Порядковый номер сообщения (может генерироваться средствами СУБД) - numeric(19,0)
         /// </summary>
-        [Column("НомерСообщения")]
+        [Column("НомерСообщения")] [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public long MessageNumber { get; set; } = 0L;
         /// <summary>
-        /// "Идентификатор" Уникальный идентификатор сообщения - binary(16)
+        /// "Идентификатор" Уникальный идентификатор объекта 1С в теле сообщения - binary(16)
         /// </summary>
-        [Column("Идентификатор")] public Guid Uuid { get; set; }
+        [Column("Идентификатор")] [Key] public Guid Uuid { get; set; }
         /// <summary>
         /// "Заголовки" Заголовки сообщения в формате JSON { "ключ": "значение" } - nvarchar(max)
         /// </summary>
