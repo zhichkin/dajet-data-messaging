@@ -11,7 +11,7 @@ namespace DaJet.Data.Messaging.Test
         private readonly InfoBase _infoBase;
         private readonly ApplicationObject _incomingQueue;
         private readonly ApplicationObject _outgoingQueue;
-        private const string MS_CONNECTION_STRING = "Data Source=zhichkin;Initial Catalog=dajet_agent;Integrated Security=True";
+        private const string MS_CONNECTION_STRING = "Data Source=zhichkin;Initial Catalog=dajet-messaging-ms;Integrated Security=True";
 
         private readonly DbInterfaceValidator _validator = new DbInterfaceValidator();
         private readonly QueryBuilder _builder = new QueryBuilder(DatabaseProvider.SQLServer);
@@ -28,8 +28,8 @@ namespace DaJet.Data.Messaging.Test
                 return;
             }
             _infoBase = infoBase;
-            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьKafka");
-            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьKafka");
+            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередь");
+            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередь");
         }
 
         [TestMethod] public void Validate_DbInterface()

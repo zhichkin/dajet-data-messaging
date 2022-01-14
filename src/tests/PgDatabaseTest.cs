@@ -11,7 +11,7 @@ namespace DaJet.Data.Messaging.Test
         private readonly InfoBase _infoBase;
         private readonly ApplicationObject _incomingQueue;
         private readonly ApplicationObject _outgoingQueue;
-        private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=dajet-kafka-pg;Username=postgres;Password=postgres;";
+        private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
 
         private readonly DbInterfaceValidator _validator = new DbInterfaceValidator();
         private readonly QueryBuilder _builder = new QueryBuilder(DatabaseProvider.PostgreSQL);
@@ -28,8 +28,8 @@ namespace DaJet.Data.Messaging.Test
                 return;
             }
             _infoBase = infoBase;
-            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьKafka");
-            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьKafka");
+            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередь");
+            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередь");
         }
 
         [TestMethod] public void Validate_DbInterface()
