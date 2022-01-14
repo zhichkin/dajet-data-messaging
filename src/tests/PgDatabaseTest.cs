@@ -90,7 +90,7 @@ namespace DaJet.Data.Messaging.Test
             {
                 yield return new IncomingMessage()
                 {
-                    Sender = "Kafka",
+                    Sender = "DaJet",
                     Headers = string.Empty,
                     MessageType = "test",
                     MessageBody = $"{{ \"message\": {(i + 1)} }}",
