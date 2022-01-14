@@ -1,22 +1,23 @@
 ﻿using DaJet.Metadata;
 using DaJet.Metadata.Model;
-using Microsoft.Data.SqlClient;
+using Npgsql;
+using NpgsqlTypes;
 using System;
 using System.Collections.Generic;
 using System.Data;
 
 namespace DaJet.Data.Messaging
 {
-    public sealed class MsMessageConsumer : IDisposable
+    public sealed class PgMessageConsumer : IDisposable
     {
-        private SqlCommand _command;
-        private SqlDataReader _reader;
-        private SqlConnection _connection;
-        private SqlTransaction _transaction;
+        private NpgsqlCommand _command;
+        private NpgsqlDataReader _reader;
+        private NpgsqlConnection _connection;
+        private NpgsqlTransaction _transaction;
         private int _recordsAffected;
         private readonly int _YearOffset;
         private string OUTGOING_QUEUE_SELECT_SCRIPT;
-        public MsMessageConsumer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
+        public PgMessageConsumer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
         {
             _YearOffset = yearOffset;
             ConnectionString = connectionString;
@@ -26,12 +27,12 @@ namespace DaJet.Data.Messaging
         private void Initialize(in ApplicationObject queue)
         {
             OUTGOING_QUEUE_SELECT_SCRIPT =
-                new QueryBuilder(DatabaseProvider.SQLServer)
+                new QueryBuilder(DatabaseProvider.PostgreSQL)
                 .BuildOutgoingQueueSelectScript(in queue);
 
             try
             {
-                _connection = new SqlConnection(ConnectionString);
+                _connection = new NpgsqlConnection(ConnectionString);
                 _connection.Open();
 
                 _command = _connection.CreateCommand();
@@ -49,10 +50,10 @@ namespace DaJet.Data.Messaging
         }
         private void ConfigureCommandParameters()
         {
-            _command.Parameters.Add("MessageCount", SqlDbType.Int);
+            _command.Parameters.Add("MessageCount", NpgsqlDbType.Integer);
         }
         public int RecordsAffected { get { return _recordsAffected; } }
-        private IEnumerable<SqlDataReader> SelectDataRows(int limit = 1000)
+        private IEnumerable<NpgsqlDataReader> SelectDataRows(int limit = 1000)
         {
             _recordsAffected = 0;
 
@@ -79,7 +80,7 @@ namespace DaJet.Data.Messaging
         {
             OutgoingMessage message = new OutgoingMessage();
 
-            foreach (SqlDataReader reader in SelectDataRows(limit))
+            foreach (NpgsqlDataReader reader in SelectDataRows(limit))
             {
                 message.MessageNumber = reader.IsDBNull("НомерСообщения") ? 0 : (long)reader.GetDecimal("НомерСообщения");
                 message.Uuid = reader.IsDBNull("Идентификатор") ? Guid.Empty : new Guid((byte[])reader["Идентификатор"]);
@@ -98,7 +99,7 @@ namespace DaJet.Data.Messaging
         {
             if (_connection == null)
             {
-                throw new ObjectDisposedException(nameof(MsMessageConsumer));
+                throw new ObjectDisposedException(nameof(PgMessageConsumer));
             }
 
             _reader?.Dispose();

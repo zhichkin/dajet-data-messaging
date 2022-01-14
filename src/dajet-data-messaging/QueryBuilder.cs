@@ -13,7 +13,6 @@ namespace DaJet.Data
         private const string TRIGGER_NAME_PLACEHOLDER = "{TRIGGER_NAME}";
         private const string SEQUENCE_NAME_PLACEHOLDER = "{SEQUENCE_NAME}";
         private const string FUNCTION_NAME_PLACEHOLDER = "{FUNCTION_NAME}";
-        private const string MESSAGE_COUNT_PLACEHOLDER = "{MESSAGE_COUNT}";
         private const string QUEUE_TRIGGER_NAME_TEMPLATE = "tr_dajet_{QUEUE_NAME}_insert";
         private const string QUEUE_SEQUENCE_NAME_TEMPLATE = "so_dajet_{QUEUE_NAME}";
         private const string QUEUE_FUNCTION_NAME_TEMPLATE = "fn_dajet_{QUEUE_NAME}_insert()";
@@ -52,8 +51,7 @@ namespace DaJet.Data
                 { TABLE_NAME_PLACEHOLDER, TABLE_NAME },
                 { TRIGGER_NAME_PLACEHOLDER, TRIGGER_NAME },
                 { SEQUENCE_NAME_PLACEHOLDER, SEQUENCE_NAME },
-                { FUNCTION_NAME_PLACEHOLDER, FUNCTION_NAME },
-                { MESSAGE_COUNT_PLACEHOLDER, 1000.ToString() }
+                { FUNCTION_NAME_PLACEHOLDER, FUNCTION_NAME }
             };
 
             foreach (MetadataProperty property in queue.Properties)
@@ -92,15 +90,15 @@ namespace DaJet.Data
 
         private const string MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT {TABLE_NAME} " +
-            "({НомерСообщения}, {Идентификатор}, {Заголовки}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
             "SELECT NEXT VALUE FOR {SEQUENCE_NAME}, " +
-            "@Идентификатор, @Заголовки, @Отправитель, @ТипОперации, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
+            "@Заголовки, @Отправитель, @ТипОперации, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
 
         private const string PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT INTO {TABLE_NAME} " +
-            "({НомерСообщения}, {Идентификатор}, {Заголовки}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
             "SELECT CAST(nextval('{SEQUENCE_NAME}') AS numeric(19,0)), " +
-            "@Идентификатор, CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипОперации AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
+            "CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипОперации AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
             "CAST(@ТелоСообщения AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
 
         public string BuildIncomingQueueInsertScript(in ApplicationObject queue)
@@ -126,7 +124,7 @@ namespace DaJet.Data
         #region "OUTGOING QUEUE SELECT SCRIPTS"
 
         private const string MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
-            "WITH cte AS (SELECT TOP ({MESSAGE_COUNT}) " +
+            "WITH cte AS (SELECT TOP (@MessageCount) " +
             "{НомерСообщения} AS [НомерСообщения], {Идентификатор} AS [Идентификатор], {Заголовки} AS [Заголовки], {Отправитель} AS [Отправитель], " +
             "{Получатели} AS [Получатели], {ТипОперации} AS [ТипОперации], {ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], {ДатаВремя} AS [ДатаВремя] " +
             "FROM {TABLE_NAME} WITH (ROWLOCK, READPAST) ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC) " +
@@ -134,9 +132,9 @@ namespace DaJet.Data
             "deleted.[Получатели], deleted.[ТипОперации], deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[ДатаВремя];";
 
         private const string PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
-            "WITH cte AS (SELECT {НомерСообщения}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC LIMIT {MESSAGE_COUNT}) " +
+            "WITH cte AS (SELECT {НомерСообщения}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC LIMIT @MessageCount) " +
             "DELETE FROM {TABLE_NAME} t USING cte WHERE t.{НомерСообщения} = cte.{НомерСообщения} AND t.{Идентификатор} = cte.{Идентификатор} " +
-            "RETURNING t.{НомерСообщения} AS \"НомерСообщения\", t.{Идентификатор} AS \"Идентификатор\", t.{Заголовки} AS \"Заголовки\", " +
+            "RETURNING t.{НомерСообщения} AS \"НомерСообщения\", t.{Идентификатор} AS \"Идентификатор\", CAST(t.{Заголовки} AS text) AS \"Заголовки\", " +
             "CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", CAST(t.{Получатели} AS varchar) AS \"Получатели\", " +
             "CAST(t.{ТипОперации} AS varchar) AS \"ТипОперации\", CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
             "CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", t.{ДатаВремя} AS \"ДатаВремя\";";

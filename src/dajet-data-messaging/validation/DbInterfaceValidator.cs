@@ -11,7 +11,7 @@ namespace DaJet.Data.Messaging
         {
             if (VersionMatches(in queue, typeof(IncomingMessage)))
             {
-                return 0;
+                return 1;
             }
 
             return -1;
@@ -20,7 +20,7 @@ namespace DaJet.Data.Messaging
         {
             if (VersionMatches(in queue, typeof(OutgoingMessage)))
             {
-                return 0;
+                return 1;
             }
 
             return -1;

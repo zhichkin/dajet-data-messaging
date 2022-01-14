@@ -19,7 +19,7 @@ namespace DaJet.Data.Messaging
         /// <summary>
         /// "Идентификатор" Уникальный идентификатор объекта 1С в теле сообщения - binary(16)
         /// </summary>
-        [Column("Идентификатор")] [Key] public Guid Uuid { get; set; }
+        [Column("Идентификатор")] [Key] public Guid Uuid { get; set; } = Guid.Empty;
         /// <summary>
         /// "Заголовки" Заголовки сообщения в формате JSON { "ключ": "значение" } - nvarchar(max)
         /// </summary>
@@ -47,6 +47,6 @@ namespace DaJet.Data.Messaging
         /// <summary>
         /// "ДатаВремя" Время создания сообщения - datetime2
         /// </summary>
-        [Column("ДатаВремя")] public DateTime DateTimeStamp { get; set; } = DateTime.Now;
+        [Column("ДатаВремя")] public DateTime DateTimeStamp { get; set; } = DateTime.MinValue;
     }
 }

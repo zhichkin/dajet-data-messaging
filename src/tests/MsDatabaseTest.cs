@@ -8,23 +8,52 @@ namespace DaJet.Data.Messaging.Test
 {
     [TestClass] public class MsDatabaseTest
     {
+        private readonly InfoBase _infoBase;
+        private readonly ApplicationObject _incomingQueue;
+        private readonly ApplicationObject _outgoingQueue;
         private const string MS_CONNECTION_STRING = "Data Source=zhichkin;Initial Catalog=dajet_agent;Integrated Security=True";
 
-        [TestMethod] public void IncomingQueueSetup()
+        private readonly DbInterfaceValidator _validator = new DbInterfaceValidator();
+        private readonly QueryBuilder _builder = new QueryBuilder(DatabaseProvider.SQLServer);
+        private readonly MsQueueConfigurator _configurator = new MsQueueConfigurator(MS_CONNECTION_STRING);
+
+        public MsDatabaseTest()
         {
             if (!new MetadataService()
                 .UseDatabaseProvider(DatabaseProvider.SQLServer)
                 .UseConnectionString(MS_CONNECTION_STRING)
-                .TryOpenInfoBase(out InfoBase infoBase, out string message))
+                .TryOpenInfoBase(out InfoBase infoBase, out string error))
             {
-                Console.WriteLine(message);
+                Console.WriteLine(error);
                 return;
             }
+            _infoBase = infoBase;
+            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьKafka");
+            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьKafka");
+        }
 
-            ApplicationObject queue = infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьKafka");
+        [TestMethod] public void Validate_DbInterface()
+        {
+            int version = -1;
 
-            MsQueueConfigurator configurator = new MsQueueConfigurator(MS_CONNECTION_STRING);
-            configurator.ConfigureIncomingMessageQueue(in queue, out List<string> errors);
+            version = _validator.GetIncomingInterfaceVersion(in _incomingQueue);
+            Console.WriteLine($"Incoming queue version = {version}");
+
+            version = _validator.GetOutgoingInterfaceVersion(in _outgoingQueue);
+            Console.WriteLine($"Outgoing queue version = {version}");
+        }
+        [TestMethod] public void Script_IncomingInsert()
+        {
+            Console.WriteLine($"{_builder.BuildIncomingQueueInsertScript(in _incomingQueue)}");
+        }
+        [TestMethod] public void Script_OutgoingSelect()
+        {
+            Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in _outgoingQueue)}");
+        }
+
+        [TestMethod] public void Configure_IncomingQueue()
+        {
+            _configurator.ConfigureIncomingMessageQueue(in _incomingQueue, out List<string> errors);
 
             if (errors.Count > 0)
             {
@@ -38,21 +67,9 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine("Incoming queue configured successfully.");
             }
         }
-        [TestMethod] public void OutgoingQueueSetup()
+        [TestMethod] public void Configure_OutgoingQueue()
         {
-            if (!new MetadataService()
-                .UseDatabaseProvider(DatabaseProvider.SQLServer)
-                .UseConnectionString(MS_CONNECTION_STRING)
-                .TryOpenInfoBase(out InfoBase infoBase, out string message))
-            {
-                Console.WriteLine(message);
-                return;
-            }
-
-            ApplicationObject queue = infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьKafka");
-
-            MsQueueConfigurator configurator = new MsQueueConfigurator(MS_CONNECTION_STRING);
-            configurator.ConfigureOutgoingMessageQueue(in queue, out List<string> errors);
+            _configurator.ConfigureOutgoingMessageQueue(in _outgoingQueue, out List<string> errors);
 
             if (errors.Count > 0)
             {
@@ -66,69 +83,13 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine("Outgoing queue configured successfully.");
             }
         }
-        [TestMethod] public void DbInterfaceValidation()
-        {
-            if (!new MetadataService()
-                .UseDatabaseProvider(DatabaseProvider.SQLServer)
-                .UseConnectionString(MS_CONNECTION_STRING)
-                .TryOpenInfoBase(out InfoBase infoBase, out string error))
-            {
-                Console.WriteLine(error);
-                return;
-            }
-
-            int version = -1;
-            ApplicationObject incomingQueue = infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьKafka");
-            ApplicationObject outgoingQueue = infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьKafka");
-
-            DbInterfaceValidator validator = new DbInterfaceValidator();
-            
-            version = validator.GetIncomingInterfaceVersion(in incomingQueue);
-            Console.WriteLine($"Incoming queue version = {version}");
-            
-            version = validator.GetOutgoingInterfaceVersion(in outgoingQueue);
-            Console.WriteLine($"Outgoing queue version = {version}");
-        }
-        [TestMethod] public void IncomingInsertScript()
-        {
-            if (!new MetadataService()
-                .UseDatabaseProvider(DatabaseProvider.SQLServer)
-                .UseConnectionString(MS_CONNECTION_STRING)
-                .TryOpenInfoBase(out InfoBase infoBase, out string error))
-            {
-                Console.WriteLine(error);
-                return;
-            }
-            ApplicationObject queue = infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьKafka");
-
-            QueryBuilder builder = new QueryBuilder(DatabaseProvider.SQLServer);
-
-            Console.WriteLine($"{builder.BuildIncomingQueueInsertScript(in queue)}");
-        }
-        [TestMethod] public void OutgoingSelectScript()
-        {
-            if (!new MetadataService()
-                .UseDatabaseProvider(DatabaseProvider.SQLServer)
-                .UseConnectionString(MS_CONNECTION_STRING)
-                .TryOpenInfoBase(out InfoBase infoBase, out string error))
-            {
-                Console.WriteLine(error);
-                return;
-            }
-            ApplicationObject queue = infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьKafka");
-
-            QueryBuilder builder = new QueryBuilder(DatabaseProvider.SQLServer);
-
-            Console.WriteLine($"{builder.BuildOutgoingQueueSelectScript(in queue)}");
-        }
-
+        
         private IEnumerable<IncomingMessage> GetTestIncomingMessages()
         {
             for (int i = 0; i < 10; i++)
             {
                 yield return new IncomingMessage()
                 {
-                    Uuid = Guid.NewGuid(),
                     Sender = "Kafka",
                     Headers = string.Empty,
                     MessageType = "test",
@@ -140,76 +101,53 @@ namespace DaJet.Data.Messaging.Test
         }
         [TestMethod] public void MessageProducer_Insert()
         {
-            if (!new MetadataService()
-                .UseDatabaseProvider(DatabaseProvider.SQLServer)
-                .UseConnectionString(MS_CONNECTION_STRING)
-                .TryOpenInfoBase(out InfoBase infoBase, out string error))
-            {
-                Console.WriteLine(error);
-                return;
-            }
+            int total = 0;
 
-            ApplicationObject queue = infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьKafka");
-
-            using (MsMessageProducer producer = new MsMessageProducer(MS_CONNECTION_STRING, queue, infoBase.YearOffset))
+            using (MsMessageProducer producer = new MsMessageProducer(MS_CONNECTION_STRING, in _incomingQueue, _infoBase.YearOffset))
             {
                 foreach (IncomingMessage message in GetTestIncomingMessages())
                 {
-                    producer.Insert(in message);
+                    producer.Insert(in message); total++;
                 }
 
                 producer.TxBegin();
                 foreach (IncomingMessage message in GetTestIncomingMessages())
                 {
-                    producer.Insert(in message);
+                    producer.Insert(in message); total++;
                 }
                 producer.TxCommit();
 
                 producer.TxBegin();
                 foreach (IncomingMessage message in GetTestIncomingMessages())
                 {
-                    producer.Insert(in message);
+                    producer.Insert(in message); total++;
                 }
                 producer.TxCommit();
             }
+
+            Console.WriteLine($"Total = {total}");
         }
-
         [TestMethod] public void MessageConsumer_Select()
         {
-            if (!new MetadataService()
-                .UseDatabaseProvider(DatabaseProvider.SQLServer)
-                .UseConnectionString(MS_CONNECTION_STRING)
-                .TryOpenInfoBase(out InfoBase infoBase, out string error))
-            {
-                Console.WriteLine(error);
-                return;
-            }
-
-            ApplicationObject queue = infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьKafka");
-
-            int count = 1;
             int total = 0;
-            using (MsMessageConsumer consumer = new MsMessageConsumer(MS_CONNECTION_STRING, queue, infoBase.YearOffset))
-            {
-                while (count > 0)
-                {
-                    count = 0;
 
+            using (MsMessageConsumer consumer = new MsMessageConsumer(MS_CONNECTION_STRING, in _outgoingQueue, _infoBase.YearOffset))
+            {
+                do
+                {
                     foreach (OutgoingMessage message in consumer.Select())
                     {
-                        count++;
                         total++;
 
                         // Send message to recipient
                         // Check if message accepted
                         // If not break foreach loop
                     }
-
-                    break;
+                    Console.WriteLine($"Count = {consumer.RecordsAffected}");
                 }
+                while (consumer.RecordsAffected > 0);
             }
-
-            Console.WriteLine($"Count = {count}, total = {total}");
+            Console.WriteLine($"Total = {total}");
         }
     }
 }

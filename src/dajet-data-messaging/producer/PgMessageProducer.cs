@@ -1,19 +1,20 @@
 ﻿using DaJet.Metadata;
 using DaJet.Metadata.Model;
-using Microsoft.Data.SqlClient;
+using Npgsql;
+using NpgsqlTypes;
 using System;
 using System.Data;
 
 namespace DaJet.Data.Messaging
 {
-    public sealed class MsMessageProducer : IDisposable
+    public sealed class PgMessageProducer : IDisposable
     {
-        private SqlCommand _command;
-        private SqlConnection _connection;
-        private SqlTransaction _transaction;
+        private NpgsqlCommand _command;
+        private NpgsqlConnection _connection;
+        private NpgsqlTransaction _transaction;
         private readonly int _YearOffset;
         private string INCOMING_QUEUE_INSERT_SCRIPT;
-        public MsMessageProducer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
+        public PgMessageProducer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
         {
             _YearOffset = yearOffset;
             ConnectionString = connectionString;
@@ -23,12 +24,12 @@ namespace DaJet.Data.Messaging
         private void Initialize(in ApplicationObject queue)
         {
             INCOMING_QUEUE_INSERT_SCRIPT =
-                new QueryBuilder(DatabaseProvider.SQLServer)
+                new QueryBuilder(DatabaseProvider.PostgreSQL)
                 .BuildIncomingQueueInsertScript(in queue);
 
             try
             {
-                _connection = new SqlConnection(ConnectionString);
+                _connection = new NpgsqlConnection(ConnectionString);
                 _connection.Open();
 
                 _command = _connection.CreateCommand();
@@ -46,14 +47,14 @@ namespace DaJet.Data.Messaging
         }
         private void ConfigureCommandParameters()
         {
-            _command.Parameters.Add("Заголовки", SqlDbType.NVarChar);
-            _command.Parameters.Add("Отправитель", SqlDbType.NVarChar);
-            _command.Parameters.Add("ТипСообщения", SqlDbType.NVarChar);
-            _command.Parameters.Add("ТелоСообщения", SqlDbType.NVarChar);
-            _command.Parameters.Add("ДатаВремя", SqlDbType.DateTime2);
-            _command.Parameters.Add("ТипОперации", SqlDbType.NVarChar);
-            _command.Parameters.Add("ОписаниеОшибки", SqlDbType.NVarChar);
-            _command.Parameters.Add("КоличествоОшибок", SqlDbType.Int);
+            _command.Parameters.Add("Заголовки", NpgsqlDbType.Varchar);
+            _command.Parameters.Add("Отправитель", NpgsqlDbType.Varchar);
+            _command.Parameters.Add("ТипСообщения", NpgsqlDbType.Varchar);
+            _command.Parameters.Add("ТелоСообщения", NpgsqlDbType.Varchar);
+            _command.Parameters.Add("ДатаВремя", NpgsqlDbType.Timestamp);
+            _command.Parameters.Add("ТипОперации", NpgsqlDbType.Varchar);
+            _command.Parameters.Add("ОписаниеОшибки", NpgsqlDbType.Varchar);
+            _command.Parameters.Add("КоличествоОшибок", NpgsqlDbType.Integer);
         }
         public void Insert(in IncomingMessage message)
         {
@@ -75,14 +76,13 @@ namespace DaJet.Data.Messaging
         }
         public void TxCommit()
         {
-            // this method call sets _command.Transaction property to null
             _transaction.Commit();
         }
         public void Dispose()
         {
             if (_connection == null)
             {
-                throw new ObjectDisposedException(nameof(MsMessageProducer));
+                throw new ObjectDisposedException(nameof(PgMessageProducer));
             }
 
             _command?.Dispose();
