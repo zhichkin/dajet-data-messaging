@@ -7,7 +7,7 @@
 
 Поддерживаемые СУБД: Microsoft SQL Server и PostgreSQL.
 
-[NuGet](https://www.nuget.org/packages/DaJet.Data.Messaging)
+[NuGet](https://www.nuget.org/packages/DaJet.Data.Messaging) & [Telegram support channel](https://t.me/dajet_studio_group)
 
 **Принцип работы:**
 1. В конфигурации 1С создаётся нужное количество регистров сведений: входящие и исходящие очереди сообщений.
