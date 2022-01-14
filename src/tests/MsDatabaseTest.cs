@@ -173,5 +173,43 @@ namespace DaJet.Data.Messaging.Test
                 producer.TxCommit();
             }
         }
+
+        [TestMethod] public void MessageConsumer_Select()
+        {
+            if (!new MetadataService()
+                .UseDatabaseProvider(DatabaseProvider.SQLServer)
+                .UseConnectionString(MS_CONNECTION_STRING)
+                .TryOpenInfoBase(out InfoBase infoBase, out string error))
+            {
+                Console.WriteLine(error);
+                return;
+            }
+
+            ApplicationObject queue = infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьKafka");
+
+            int count = 1;
+            int total = 0;
+            using (MsMessageConsumer consumer = new MsMessageConsumer(MS_CONNECTION_STRING, queue, infoBase.YearOffset))
+            {
+                while (count > 0)
+                {
+                    count = 0;
+
+                    foreach (OutgoingMessage message in consumer.Select())
+                    {
+                        count++;
+                        total++;
+
+                        // Send message to recipient
+                        // Check if message accepted
+                        // If not break foreach loop
+                    }
+
+                    break;
+                }
+            }
+
+            Console.WriteLine($"Count = {count}, total = {total}");
+        }
     }
 }
