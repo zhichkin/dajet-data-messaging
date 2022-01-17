@@ -103,19 +103,12 @@ namespace DaJet.Data.Messaging.Test
         {
             int total = 0;
 
-            using (PgMessageProducer producer = new PgMessageProducer(PG_CONNECTION_STRING, in _incomingQueue, _infoBase.YearOffset))
+            using (IMessageProducer producer = new PgMessageProducer(PG_CONNECTION_STRING, in _incomingQueue, _infoBase.YearOffset))
             {
                 foreach (IncomingMessage message in GetTestIncomingMessages())
                 {
                     producer.Insert(in message); total++;
                 }
-
-                producer.TxBegin();
-                foreach (IncomingMessage message in GetTestIncomingMessages())
-                {
-                    producer.Insert(in message); total++;
-                }
-                producer.TxCommit();
 
                 producer.TxBegin();
                 foreach (IncomingMessage message in GetTestIncomingMessages())
@@ -131,18 +124,22 @@ namespace DaJet.Data.Messaging.Test
         {
             int total = 0;
 
-            using (PgMessageConsumer consumer = new PgMessageConsumer(PG_CONNECTION_STRING, in _outgoingQueue, _infoBase.YearOffset))
+            using (IMessageConsumer consumer = new PgMessageConsumer(PG_CONNECTION_STRING, in _outgoingQueue, _infoBase.YearOffset))
             {
                 do
                 {
                     foreach (OutgoingMessage message in consumer.Select())
                     {
                         total++;
-
-                        // Send message to recipient
-                        // Check if message accepted
-                        // If not break foreach loop
                     }
+
+                    consumer.TxBegin();
+                    foreach (OutgoingMessage message in consumer.Select())
+                    {
+                        total++;
+                    }
+                    consumer.TxCommit();
+
                     Console.WriteLine($"Count = {consumer.RecordsAffected}");
                 }
                 while (consumer.RecordsAffected > 0);

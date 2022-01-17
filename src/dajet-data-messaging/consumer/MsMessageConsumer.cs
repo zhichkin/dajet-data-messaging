@@ -7,7 +7,7 @@ using System.Data;
 
 namespace DaJet.Data.Messaging
 {
-    public sealed class MsMessageConsumer : IDisposable
+    public sealed class MsMessageConsumer : IMessageConsumer
     {
         private SqlCommand _command;
         private SqlDataReader _reader;
@@ -15,14 +15,14 @@ namespace DaJet.Data.Messaging
         private SqlTransaction _transaction;
         private int _recordsAffected;
         private readonly int _YearOffset;
+        private readonly string _connectionString;
         private string OUTGOING_QUEUE_SELECT_SCRIPT;
         public MsMessageConsumer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
         {
             _YearOffset = yearOffset;
-            ConnectionString = connectionString;
+            _connectionString = connectionString;
             Initialize(in queue);
         }
-        public string ConnectionString { get; }
         private void Initialize(in ApplicationObject queue)
         {
             OUTGOING_QUEUE_SELECT_SCRIPT =
@@ -31,7 +31,7 @@ namespace DaJet.Data.Messaging
 
             try
             {
-                _connection = new SqlConnection(ConnectionString);
+                _connection = new SqlConnection(_connectionString);
                 _connection.Open();
 
                 _command = _connection.CreateCommand();
@@ -56,23 +56,17 @@ namespace DaJet.Data.Messaging
         {
             _recordsAffected = 0;
 
-            using (_transaction = _connection.BeginTransaction())
+            _command.Parameters["MessageCount"].Value = limit;
+
+            using (_reader = _command.ExecuteReader())
             {
-                _command.Transaction = _transaction;
-                _command.Parameters["MessageCount"].Value = limit;
-
-                using (_reader = _command.ExecuteReader())
+                while (_reader.Read())
                 {
-                    while (_reader.Read())
-                    {
-                        yield return _reader;
-                    }
-                    _reader.Close();
-
-                    _recordsAffected = _reader.RecordsAffected;
+                    yield return _reader;
                 }
+                _reader.Close();
 
-                _transaction.Commit();
+                _recordsAffected = _reader.RecordsAffected;
             }
         }
         public IEnumerable<OutgoingMessage> Select(int limit = 1000)
@@ -93,6 +87,15 @@ namespace DaJet.Data.Messaging
 
                 yield return message;
             }
+        }
+        public void TxBegin()
+        {
+            _transaction = _connection.BeginTransaction();
+            _command.Transaction = _transaction;
+        }
+        public void TxCommit()
+        {
+            _transaction.Commit();
         }
         public void Dispose()
         {

@@ -7,20 +7,20 @@ using System.Data;
 
 namespace DaJet.Data.Messaging
 {
-    public sealed class PgMessageProducer : IDisposable
+    public sealed class PgMessageProducer : IMessageProducer
     {
         private NpgsqlCommand _command;
         private NpgsqlConnection _connection;
         private NpgsqlTransaction _transaction;
         private readonly int _YearOffset;
+        private readonly string _connectionString;
         private string INCOMING_QUEUE_INSERT_SCRIPT;
         public PgMessageProducer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
         {
             _YearOffset = yearOffset;
-            ConnectionString = connectionString;
+            _connectionString = connectionString;
             Initialize(in queue);
         }
-        public string ConnectionString { get; }
         private void Initialize(in ApplicationObject queue)
         {
             INCOMING_QUEUE_INSERT_SCRIPT =
@@ -29,7 +29,7 @@ namespace DaJet.Data.Messaging
 
             try
             {
-                _connection = new NpgsqlConnection(ConnectionString);
+                _connection = new NpgsqlConnection(_connectionString);
                 _connection.Open();
 
                 _command = _connection.CreateCommand();

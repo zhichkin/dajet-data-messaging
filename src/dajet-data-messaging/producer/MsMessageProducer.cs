@@ -6,20 +6,20 @@ using System.Data;
 
 namespace DaJet.Data.Messaging
 {
-    public sealed class MsMessageProducer : IDisposable
+    public sealed class MsMessageProducer : IMessageProducer
     {
         private SqlCommand _command;
         private SqlConnection _connection;
         private SqlTransaction _transaction;
         private readonly int _YearOffset;
+        private readonly string _connectionString;
         private string INCOMING_QUEUE_INSERT_SCRIPT;
         public MsMessageProducer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
         {
             _YearOffset = yearOffset;
-            ConnectionString = connectionString;
+            _connectionString = connectionString;
             Initialize(in queue);
         }
-        public string ConnectionString { get; }
         private void Initialize(in ApplicationObject queue)
         {
             INCOMING_QUEUE_INSERT_SCRIPT =
@@ -28,7 +28,7 @@ namespace DaJet.Data.Messaging
 
             try
             {
-                _connection = new SqlConnection(ConnectionString);
+                _connection = new SqlConnection(_connectionString);
                 _connection.Open();
 
                 _command = _connection.CreateCommand();
@@ -75,7 +75,6 @@ namespace DaJet.Data.Messaging
         }
         public void TxCommit()
         {
-            // this method call sets _command.Transaction property to null
             _transaction.Commit();
         }
         public void Dispose()
