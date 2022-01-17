@@ -44,7 +44,14 @@ namespace DaJet.Data.Messaging
 
         #region "ENUMERATE QUEUE SCRIPTS"
 
-        private const string ENUMERATE_QUEUE_SCRIPT =
+        private const string ENUMERATE_INCOMING_QUEUE_SCRIPT =
+            "LOCK TABLE {TABLE_NAME} IN ACCESS EXCLUSIVE MODE; " +
+            "WITH cte AS (SELECT {НомерСообщения}, nextval('{SEQUENCE_NAME}') AS msgno " +
+            "FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC) " +
+            "UPDATE {TABLE_NAME} SET {НомерСообщения} = CAST(cte.msgno AS numeric(19, 0)) " +
+            "FROM cte WHERE {TABLE_NAME}.{НомерСообщения} = cte.{НомерСообщения};";
+
+        private const string ENUMERATE_OUTGOING_QUEUE_SCRIPT =
             "LOCK TABLE {TABLE_NAME} IN ACCESS EXCLUSIVE MODE; " +
             "WITH cte AS (SELECT {НомерСообщения}, {Идентификатор}, nextval('{SEQUENCE_NAME}') AS msgno " +
             "FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC) " +
@@ -76,7 +83,7 @@ namespace DaJet.Data.Messaging
             List<string> templates = new List<string>
             {
                 CREATE_SEQUENCE_SCRIPT,
-                ENUMERATE_QUEUE_SCRIPT
+                ENUMERATE_INCOMING_QUEUE_SCRIPT
             };
 
             _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);
@@ -118,7 +125,7 @@ namespace DaJet.Data.Messaging
             List<string> templates = new List<string>
             {
                 CREATE_SEQUENCE_SCRIPT,
-                ENUMERATE_QUEUE_SCRIPT,
+                ENUMERATE_OUTGOING_QUEUE_SCRIPT,
                 CREATE_OUTGOING_FUNCTION_SCRIPT,
                 DROP_OUTGOING_TRIGGER_SCRIPT,
                 CREATE_OUTGOING_TRIGGER_SCRIPT

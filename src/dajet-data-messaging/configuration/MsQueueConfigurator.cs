@@ -44,7 +44,15 @@ namespace DaJet.Data.Messaging
 
         #region "ENUMERATE QUEUE SCRIPTS"
 
-        private const string ENUMERATE_QUEUE_SCRIPT =
+        private const string ENUMERATE_INCOMING_QUEUE_SCRIPT =
+            "SELECT {НомерСообщения} AS [НомерСообщения], " +
+            "NEXT VALUE FOR {SEQUENCE_NAME} OVER(ORDER BY {НомерСообщения} ASC) AS [Порядок] " +
+            "INTO #{TABLE_NAME}_EnumCopy " +
+            "FROM {TABLE_NAME} WITH (TABLOCKX, HOLDLOCK); " +
+            "UPDATE T SET T.{НомерСообщения} = C.[Порядок] FROM {TABLE_NAME} AS T " +
+            "INNER JOIN #{TABLE_NAME}_EnumCopy AS C ON T.{НомерСообщения} = C.[НомерСообщения];";
+
+        private const string ENUMERATE_OUTGOING_QUEUE_SCRIPT =
             "SELECT {НомерСообщения} AS [НомерСообщения], {Идентификатор} AS [Идентификатор], " +
             "NEXT VALUE FOR {SEQUENCE_NAME} OVER(ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC) AS [Порядок] " +
             "INTO #{TABLE_NAME}_EnumCopy " +
@@ -79,7 +87,7 @@ namespace DaJet.Data.Messaging
             List<string> templates = new List<string>()
             {
                 CREATE_SEQUENCE_SCRIPT,
-                ENUMERATE_QUEUE_SCRIPT,
+                ENUMERATE_INCOMING_QUEUE_SCRIPT,
                 DROP_ENUMERATION_TABLE
             };
 
@@ -126,7 +134,7 @@ namespace DaJet.Data.Messaging
             List<string> templates = new List<string>()
             {
                 CREATE_SEQUENCE_SCRIPT,
-                ENUMERATE_QUEUE_SCRIPT,
+                ENUMERATE_OUTGOING_QUEUE_SCRIPT,
                 DROP_ENUMERATION_TABLE,
                 DROP_OUTGOING_TRIGGER_SCRIPT,
                 CREATE_OUTGOING_TRIGGER_SCRIPT,
