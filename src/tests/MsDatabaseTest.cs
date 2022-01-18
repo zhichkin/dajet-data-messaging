@@ -1,4 +1,5 @@
 using DaJet.Metadata;
+using DaJet.Metadata.Mappers;
 using DaJet.Metadata.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
@@ -145,6 +146,27 @@ namespace DaJet.Data.Messaging.Test
                 while (consumer.RecordsAffected > 0);
             }
             Console.WriteLine($"Total = {total}");
+        }
+
+        [TestMethod] public void Settings_Publication()
+        {
+            ApplicationObject metadata = _infoBase.GetApplicationObjectByName("ПланОбмена.DaJetMessaging");
+
+            Console.WriteLine($"План обмена: {metadata.Name}");
+
+            Publication publication = metadata as Publication;
+
+            PublicationDataMapper mapper = new PublicationDataMapper();
+            mapper.UseDatabaseProvider(DatabaseProvider.SQLServer);
+            mapper.UseConnectionString(MS_CONNECTION_STRING);
+            mapper.SelectSubscribers(publication);
+
+            Console.WriteLine($"Узел: {publication.Publisher.Code} ({publication.Publisher.Name})");
+
+            foreach (Subscriber subscriber in publication.Subscribers)
+            {
+                Console.WriteLine($"- {subscriber.Code} : {subscriber.Name}");
+            }
         }
     }
 }
