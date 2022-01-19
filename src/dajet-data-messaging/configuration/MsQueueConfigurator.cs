@@ -95,10 +95,13 @@ namespace DaJet.Data.Messaging
 
             _executor.TxExecuteNonQuery(in scripts, 60);
         }
-        
+
         #endregion
 
         #region "CONFIGURE OUTGOING QUEUE"
+
+        private const string OUTGOING_TRIGGER_EXISTS =
+            "SELECT 1 FROM sys.triggers WHERE name = '{TRIGGER_NAME}';";
 
         private const string DROP_OUTGOING_TRIGGER_SCRIPT =
             "IF OBJECT_ID('{TRIGGER_NAME}', 'TR') IS NOT NULL BEGIN DROP TRIGGER {TRIGGER_NAME} END;";
@@ -106,12 +109,26 @@ namespace DaJet.Data.Messaging
         private const string CREATE_OUTGOING_TRIGGER_SCRIPT =
             "CREATE TRIGGER {TRIGGER_NAME} ON {TABLE_NAME} INSTEAD OF INSERT NOT FOR REPLICATION AS " +
             "INSERT {TABLE_NAME} " +
-            "({НомерСообщения}, {Идентификатор}, {Заголовки}, {Отправитель}, {Получатели}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}) " +
+            "({НомерСообщения}, {Идентификатор}, {Заголовки}, {ТипСообщения}, {ТелоСообщения}, {Версия}, {ДатаВремя}) " +
             "SELECT NEXT VALUE FOR {SEQUENCE_NAME}, " +
-            "i.{Идентификатор}, i.{Заголовки}, i.{Отправитель}, i.{Получатели}, i.{ТипОперации}, i.{ТипСообщения}, i.{ТелоСообщения}, i.{ДатаВремя} " +
+            "i.{Идентификатор}, i.{Заголовки}, i.{ТипСообщения}, i.{ТелоСообщения}, i.{Версия}, i.{ДатаВремя} " +
             "FROM inserted AS i;";
 
         private const string ENABLE_OUTGOING_TRIGGER_SCRIPT = "ENABLE TRIGGER {TRIGGER_NAME} ON {TABLE_NAME};";
+
+        private bool OutgoingTriggerExists(in ApplicationObject queue)
+        {
+            List<string> templates = new List<string>()
+            {
+                OUTGOING_TRIGGER_EXISTS
+            };
+
+            _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);
+
+            int result = _executor.ExecuteScalar<int>(scripts[0], 10);
+
+            return (result == 1);
+        }
 
         public void ConfigureOutgoingMessageQueue(in ApplicationObject queue, out List<string> errors)
         {
@@ -119,7 +136,7 @@ namespace DaJet.Data.Messaging
 
             try
             {
-                if (!SequenceExists(in queue))
+                if (!SequenceExists(in queue) || !OutgoingTriggerExists(in queue))
                 {
                     ConfigureOutgoingQueue(in queue);
                 }

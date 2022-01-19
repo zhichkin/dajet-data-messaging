@@ -95,6 +95,9 @@ namespace DaJet.Data.Messaging
 
         #region "CONFIGURE OUTGOING QUEUE"
 
+        private const string OUTGOING_TRIGGER_EXISTS =
+            "SELECT 1 FROM information_schema.triggers WHERE LOWER(trigger_name) = LOWER('{TRIGGER_NAME}');";
+
         private const string CREATE_OUTGOING_FUNCTION_SCRIPT =
             "CREATE OR REPLACE FUNCTION {FUNCTION_NAME} RETURNS trigger AS $$ BEGIN " +
             "NEW.{НомерСообщения} := CAST(nextval('{SEQUENCE_NAME}') AS numeric(19,0)); RETURN NEW; END $$ LANGUAGE 'plpgsql';";
@@ -104,13 +107,27 @@ namespace DaJet.Data.Messaging
         private const string CREATE_OUTGOING_TRIGGER_SCRIPT =
             "CREATE TRIGGER {TRIGGER_NAME} BEFORE INSERT ON {TABLE_NAME} FOR EACH ROW EXECUTE PROCEDURE {FUNCTION_NAME};";
 
+        private bool OutgoingTriggerExists(in ApplicationObject queue)
+        {
+            List<string> templates = new List<string>()
+            {
+                OUTGOING_TRIGGER_EXISTS
+            };
+
+            _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);
+
+            int result = _executor.ExecuteScalar<int>(scripts[0], 10);
+
+            return (result == 1);
+        }
+
         public void ConfigureOutgoingMessageQueue(in ApplicationObject queue, out List<string> errors)
         {
             errors = new List<string>();
 
             try
             {
-                if (!SequenceExists(in queue))
+                if (!SequenceExists(in queue) || !OutgoingTriggerExists(in queue))
                 {
                     ConfigureOutgoingQueue(in queue);
                 }

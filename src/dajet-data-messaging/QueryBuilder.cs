@@ -13,9 +13,9 @@ namespace DaJet.Data
         private const string TRIGGER_NAME_PLACEHOLDER = "{TRIGGER_NAME}";
         private const string SEQUENCE_NAME_PLACEHOLDER = "{SEQUENCE_NAME}";
         private const string FUNCTION_NAME_PLACEHOLDER = "{FUNCTION_NAME}";
-        private const string QUEUE_TRIGGER_NAME_TEMPLATE = "tr_dajet_{QUEUE_NAME}_insert";
-        private const string QUEUE_SEQUENCE_NAME_TEMPLATE = "so_dajet_{QUEUE_NAME}";
-        private const string QUEUE_FUNCTION_NAME_TEMPLATE = "fn_dajet_{QUEUE_NAME}_insert()";
+        private const string QUEUE_TRIGGER_NAME_TEMPLATE = "{QUEUE_NAME}_tr_insert";
+        private const string QUEUE_SEQUENCE_NAME_TEMPLATE = "{QUEUE_NAME}_so";
+        private const string QUEUE_FUNCTION_NAME_TEMPLATE = "{QUEUE_NAME}_fn_insert()";
 
         #endregion
 
@@ -29,15 +29,15 @@ namespace DaJet.Data
 
         private string CreateSequenceName(in ApplicationObject queue)
         {
-            return QUEUE_SEQUENCE_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.Name).ToLower();
+            return QUEUE_SEQUENCE_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.TableName).ToLower();
         }
         private string CreateFunctionName(in ApplicationObject queue)
         {
-            return QUEUE_FUNCTION_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.Name).ToLower();
+            return QUEUE_FUNCTION_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.TableName).ToLower();
         }
         private string CreateInsertTriggerName(in ApplicationObject queue)
         {
-            return QUEUE_TRIGGER_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.Name).ToLower();
+            return QUEUE_TRIGGER_NAME_TEMPLATE.Replace(QUEUE_NAME_PLACEHOLDER, queue.TableName).ToLower();
         }
         private Dictionary<string, string> GetScriptConfigurationValues(in ApplicationObject queue)
         {
@@ -90,16 +90,16 @@ namespace DaJet.Data
 
         private const string MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT {TABLE_NAME} " +
-            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {Версия}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
             "SELECT NEXT VALUE FOR {SEQUENCE_NAME}, " +
-            "@Заголовки, @Отправитель, @ТипОперации, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
+            "@Заголовки, @Отправитель, @ТипСообщения, @ТелоСообщения, @Версия, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
 
         private const string PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT INTO {TABLE_NAME} " +
-            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {Версия}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
             "SELECT CAST(nextval('{SEQUENCE_NAME}') AS numeric(19,0)), " +
-            "CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипОперации AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
-            "CAST(@ТелоСообщения AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
+            "CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
+            "CAST(@ТелоСообщения AS mvarchar), CAST(@Версия AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
 
         public string BuildIncomingQueueInsertScript(in ApplicationObject queue)
         {
@@ -125,19 +125,18 @@ namespace DaJet.Data
 
         private const string MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
             "WITH cte AS (SELECT TOP (@MessageCount) " +
-            "{НомерСообщения} AS [НомерСообщения], {Идентификатор} AS [Идентификатор], {Заголовки} AS [Заголовки], {Отправитель} AS [Отправитель], " +
-            "{Получатели} AS [Получатели], {ТипОперации} AS [ТипОперации], {ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], {ДатаВремя} AS [ДатаВремя] " +
+            "{НомерСообщения} AS [НомерСообщения], {Идентификатор} AS [Идентификатор], {Заголовки} AS [Заголовки], " +
+            "{ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], {Версия} AS [Версия], {ДатаВремя} AS [ДатаВремя] " +
             "FROM {TABLE_NAME} WITH (ROWLOCK, READPAST) ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC) " +
-            "DELETE cte OUTPUT deleted.[НомерСообщения], deleted.[Идентификатор], deleted.[Заголовки], deleted.[Отправитель], " +
-            "deleted.[Получатели], deleted.[ТипОперации], deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[ДатаВремя];";
+            "DELETE cte OUTPUT deleted.[НомерСообщения], deleted.[Идентификатор], deleted.[Заголовки], " +
+            "deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[Версия], deleted.[ДатаВремя];";
 
         private const string PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
             "WITH cte AS (SELECT {НомерСообщения}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC LIMIT @MessageCount) " +
             "DELETE FROM {TABLE_NAME} t USING cte WHERE t.{НомерСообщения} = cte.{НомерСообщения} AND t.{Идентификатор} = cte.{Идентификатор} " +
             "RETURNING t.{НомерСообщения} AS \"НомерСообщения\", t.{Идентификатор} AS \"Идентификатор\", CAST(t.{Заголовки} AS text) AS \"Заголовки\", " +
-            "CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", CAST(t.{Получатели} AS varchar) AS \"Получатели\", " +
-            "CAST(t.{ТипОперации} AS varchar) AS \"ТипОперации\", CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
-            "CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", t.{ДатаВремя} AS \"ДатаВремя\";";
+            "CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", " +
+            "CAST(t.{Версия} AS varchar) AS \"Версия\", t.{ДатаВремя} AS \"ДатаВремя\";";
 
         public string BuildOutgoingQueueSelectScript(in ApplicationObject queue)
         {
@@ -153,6 +152,126 @@ namespace DaJet.Data
             }
 
             ConfigureScripts(in templates, in queue, out List<string> scripts);
+
+            return scripts[0];
+        }
+
+        #endregion
+
+        #region "PUBLICATION SELECT SCRIPTS"
+
+        private const string MS_PUBLICATION_SELECT_TEMPLATE =
+            "SELECT _IDRRef AS [Ссылка], _Code AS [Код], _Description AS [Наименование], " +
+            "CAST(_Marked AS bit) AS [ПометкаУдаления], _PredefinedID AS [ЭтотУзел] " +
+            "FROM {TABLE_NAME};";
+
+        private const string PG_PUBLICATION_SELECT_TEMPLATE =
+            "SELECT _idrref AS \"Ссылка\", CAST(_code AS varchar) AS \"Код\", CAST(_description AS varchar) AS \"Наименование\", " +
+            "_marked AS \"ПометкаУдаления\", _predefinedid AS \"ЭтотУзел\" " +
+            "FROM {TABLE_NAME};";
+
+        private const string MS_PUBLICATION_NODE_SELECT_TEMPLATE =
+            "SELECT _IDRRef AS [Ссылка], _Code AS [Код], _Description AS [Наименование], CAST(_Marked AS bit) AS [ПометкаУдаления], " +
+            "{СерверБрокера} AS [СерверБрокера], {ВходящаяОчередьУзла} AS [ВходящаяОчередьУзла], {ИсходящаяОчередьУзла} AS [ИсходящаяОчередьУзла], " +
+            "{ВходящаяОчередьБрокера} AS [ВходящаяОчередьБрокера], {ИсходящаяОчередьБрокера} AS [ИсходящаяОчередьБрокера] " +
+            "FROM {TABLE_NAME} WHERE _IDRRef = @uuid;";
+
+        private const string MS_PUBLICATION_NODE_PUBLICATIONS_SELECT_TEMPLATE =
+            "SELECT {ТипСообщения} AS [ТипСообщения], " +
+            "{ОчередьСообщенийУзла} AS [ОчередьСообщенийУзла], {ОчередьСообщенийБрокера} AS [ОчередьСообщенийБрокера], " +
+            "CAST({Версионирование} AS bit) AS [Версионирование] " +
+            "FROM {TABLE_NAME} WHERE {Ссылка} = @uuid ORDER BY {НомерСтроки} ASC;";
+
+        private const string MS_PUBLICATION_NODE_SUBSCRIPTIONS_SELECT_TEMPLATE =
+            "SELECT {ТипСообщения} AS [ТипСообщения], " +
+            "{ОчередьСообщенийУзла} AS [ОчередьСообщенийУзла], {ОчередьСообщенийБрокера} AS [ОчередьСообщенийБрокера], " +
+            "CAST({Версионирование} AS bit) AS [Версионирование] " +
+            "FROM {TABLE_NAME} WHERE {Ссылка} = @uuid ORDER BY {НомерСтроки} ASC;";
+
+        private const string PG_PUBLICATION_NODE_SELECT_TEMPLATE =
+            "SELECT _idrref AS \"Ссылка\", CAST(_code AS varchar) AS \"Код\", CAST(_description AS varchar) AS \"Наименование\", " +
+            "_marked AS \"ПометкаУдаления\", CAST({СерверБрокера} AS varchar) AS \"СерверБрокера\", " +
+            "CAST({ВходящаяОчередьУзла} AS varchar) AS \"ВходящаяОчередьУзла\", CAST({ИсходящаяОчередьУзла} AS varchar) AS \"ИсходящаяОчередьУзла\", " +
+            "CAST({ВходящаяОчередьБрокера} AS varchar) AS \"ВходящаяОчередьБрокера\", CAST({ИсходящаяОчередьБрокера} AS varchar) AS \"ИсходящаяОчередьБрокера\" " +
+            "FROM {TABLE_NAME} WHERE _idrref = @uuid;";
+
+        private const string PG_PUBLICATION_NODE_PUBLICATIONS_SELECT_TEMPLATE =
+            "SELECT CAST({ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
+            "CAST({ОчередьСообщенийУзла} AS varchar) AS \"ОчередьСообщенийУзла\", CAST({ОчередьСообщенийБрокера} AS varchar) AS \"ОчередьСообщенийБрокера\", " +
+            "{Версионирование} AS \"Версионирование\" " +
+            "FROM {TABLE_NAME} WHERE {Ссылка} = @uuid ORDER BY {НомерСтроки} ASC;";
+
+        private const string PG_PUBLICATION_NODE_SUBSCRIPTIONS_SELECT_TEMPLATE =
+            "SELECT CAST({ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
+            "CAST({ОчередьСообщенийУзла} AS varchar) AS \"ОчередьСообщенийУзла\", CAST({ОчередьСообщенийБрокера} AS varchar) AS \"ОчередьСообщенийБрокера\", " +
+            "{Версионирование} AS \"Версионирование\" " +
+            "FROM {TABLE_NAME} WHERE {Ссылка} = @uuid ORDER BY {НомерСтроки} ASC;";
+
+        public string BuildPublicationSelectScript(in Publication publication)
+        {
+            List<string> templates;
+
+            if (_provider == DatabaseProvider.SQLServer)
+            {
+                templates = new List<string>() { MS_PUBLICATION_SELECT_TEMPLATE };
+            }
+            else
+            {
+                templates = new List<string>() { PG_PUBLICATION_SELECT_TEMPLATE };
+            }
+
+            ConfigureScripts(in templates, publication, out List<string> scripts);
+
+            return scripts[0];
+        }
+        public string BuildPublicationNodeSelectScript(in Publication publication)
+        {
+            List<string> templates;
+
+            if (_provider == DatabaseProvider.SQLServer)
+            {
+                templates = new List<string>() { MS_PUBLICATION_NODE_SELECT_TEMPLATE };
+            }
+            else
+            {
+                templates = new List<string>() { PG_PUBLICATION_NODE_SELECT_TEMPLATE };
+            }
+
+            ConfigureScripts(in templates, publication, out List<string> scripts);
+
+            return scripts[0];
+        }
+        public string BuildPublicationNodePublicationsSelectScript(in TablePart publications)
+        {
+            List<string> templates;
+
+            if (_provider == DatabaseProvider.SQLServer)
+            {
+                templates = new List<string>() { MS_PUBLICATION_NODE_PUBLICATIONS_SELECT_TEMPLATE };
+            }
+            else
+            {
+                templates = new List<string>() { PG_PUBLICATION_NODE_PUBLICATIONS_SELECT_TEMPLATE };
+            }
+
+            ConfigureScripts(in templates, publications, out List<string> scripts);
+
+            return scripts[0];
+        }
+        public string BuildPublicationNodeSubscriptionsSelectScript(in TablePart subscriptions)
+        {
+            List<string> templates;
+
+            if (_provider == DatabaseProvider.SQLServer)
+            {
+                templates = new List<string>() { MS_PUBLICATION_NODE_SUBSCRIPTIONS_SELECT_TEMPLATE };
+            }
+            else
+            {
+                templates = new List<string>() { PG_PUBLICATION_NODE_SUBSCRIPTIONS_SELECT_TEMPLATE };
+            }
+
+            ConfigureScripts(in templates, subscriptions, out List<string> scripts);
 
             return scripts[0];
         }

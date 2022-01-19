@@ -3,6 +3,7 @@ using DaJet.Metadata.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DaJet.Data.Messaging.Test
 {
@@ -94,7 +95,6 @@ namespace DaJet.Data.Messaging.Test
                     Headers = string.Empty,
                     MessageType = "test",
                     MessageBody = $"{{ \"message\": {(i + 1)} }}",
-                    OperationType = "INSERT",
                     DateTimeStamp = DateTime.Now
                 };
             }
@@ -145,6 +145,59 @@ namespace DaJet.Data.Messaging.Test
                 while (consumer.RecordsAffected > 0);
             }
             Console.WriteLine($"Total = {total}");
+        }
+
+        [TestMethod] public void Settings_Publication()
+        {
+            ApplicationObject metadata = _infoBase.GetApplicationObjectByName("ПланОбмена.DaJetMessaging");
+
+            Console.WriteLine($"План обмена: {metadata.Name}");
+
+            Publication publication = metadata as Publication;
+            TablePart publications = publication.TableParts.Where(t => t.Name == "ИсходящиеСообщения").FirstOrDefault();
+            TablePart subscriptions = publication.TableParts.Where(t => t.Name == "ВходящиеСообщения").FirstOrDefault();
+
+            PublicationSettings settings = new PublicationSettings(DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
+            settings.Select(in publication);
+
+            Console.WriteLine($"Узел: {publication.Publisher.Code} ({publication.Publisher.Name})");
+
+            foreach (Subscriber subscriber in publication.Subscribers)
+            {
+                Console.WriteLine($"- {subscriber.Code} : {subscriber.Name}");
+            }
+
+            PublicationNode node = settings.Select(in publication, publication.Publisher.Uuid);
+            Console.WriteLine();
+            Console.WriteLine($"{node.Code} : {node.Name} ({(node.IsActive ? "active" : "idle")})");
+            Console.WriteLine($"Broker: {node.BrokerServer}");
+            Console.WriteLine($"Node IN: {node.NodeIncomingQueue}");
+            Console.WriteLine($"Node OUT: {node.NodeOutgoingQueue}");
+            Console.WriteLine($"Broker IN: {node.BrokerIncomingQueue}");
+            Console.WriteLine($"Broker OUT: {node.BrokerOutgoingQueue}");
+            Console.WriteLine();
+
+            Console.WriteLine($"Publications:");
+            node.Publications = settings.SelectNodePublications(publications, node.Uuid);
+            foreach (NodePublication item in node.Publications)
+            {
+                Console.WriteLine($"* Тип сообщения: {item.MessageType}");
+                Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
+                Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
+                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
+            }
+            Console.WriteLine();
+
+            Console.WriteLine($"Subscriptions:");
+            node.Subscriptions = settings.SelectNodeSubscriptions(subscriptions, node.Uuid);
+            foreach (NodeSubscription item in node.Subscriptions)
+            {
+                Console.WriteLine($"* Тип сообщения: {item.MessageType}");
+                Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
+                Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
+                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
+            }
+            Console.WriteLine();
         }
     }
 }

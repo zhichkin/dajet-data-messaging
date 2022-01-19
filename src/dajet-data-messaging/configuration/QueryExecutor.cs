@@ -118,11 +118,6 @@ namespace DaJet.Data
                     command.CommandType = CommandType.Text;
                     command.CommandText = script;
                     command.CommandTimeout = timeout;
-                    
-                    // TODO: configure parameters
-                    //command.Parameters.AddWithValue("PageSize", size);
-                    //command.Parameters.AddWithValue("PageNumber", page);
-                    //ConfigureQueryParameters(command, Options.Filter);
 
                     using (IDataReader reader = command.ExecuteReader())
                     {
@@ -132,6 +127,48 @@ namespace DaJet.Data
                         }
                         reader.Close();
                     }
+                }
+            }
+        }
+        public IEnumerable<IDataReader> ExecuteReader(string script, int timeout, Dictionary<string, object> parameters)
+        {
+            using (DbConnection connection = GetDbConnection())
+            {
+                connection.Open();
+
+                using (DbCommand command = connection.CreateCommand())
+                {
+                    command.CommandType = CommandType.Text;
+                    command.CommandText = script;
+                    command.CommandTimeout = timeout;
+
+                    ConfigureQueryParameters(in command, in parameters);
+
+                    using (IDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            yield return reader;
+                        }
+                        reader.Close();
+                    }
+                }
+            }
+        }
+        private void ConfigureQueryParameters(in DbCommand command, in Dictionary<string, object> parameters)
+        {
+            if (command is SqlCommand ms_command)
+            {
+                foreach (var parameter in parameters)
+                {
+                    ms_command.Parameters.AddWithValue(parameter.Key, parameter.Value);
+                }
+            }
+            else if(command is NpgsqlCommand pg_command)
+            {
+                foreach (var parameter in parameters)
+                {
+                    pg_command.Parameters.AddWithValue(parameter.Key, parameter.Value);
                 }
             }
         }

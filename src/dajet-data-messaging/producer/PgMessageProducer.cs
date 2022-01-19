@@ -51,8 +51,8 @@ namespace DaJet.Data.Messaging
             _command.Parameters.Add("Отправитель", NpgsqlDbType.Varchar);
             _command.Parameters.Add("ТипСообщения", NpgsqlDbType.Varchar);
             _command.Parameters.Add("ТелоСообщения", NpgsqlDbType.Varchar);
+            _command.Parameters.Add("Версия", NpgsqlDbType.Varchar);
             _command.Parameters.Add("ДатаВремя", NpgsqlDbType.Timestamp);
-            _command.Parameters.Add("ТипОперации", NpgsqlDbType.Varchar);
             _command.Parameters.Add("ОписаниеОшибки", NpgsqlDbType.Varchar);
             _command.Parameters.Add("КоличествоОшибок", NpgsqlDbType.Integer);
         }
@@ -62,8 +62,8 @@ namespace DaJet.Data.Messaging
             _command.Parameters["Отправитель"].Value = message.Sender;
             _command.Parameters["ТипСообщения"].Value = message.MessageType;
             _command.Parameters["ТелоСообщения"].Value = message.MessageBody;
+            _command.Parameters["Версия"].Value = message.Version;
             _command.Parameters["ДатаВремя"].Value = message.DateTimeStamp.AddYears(_YearOffset);
-            _command.Parameters["ТипОперации"].Value = message.OperationType;
             _command.Parameters["ОписаниеОшибки"].Value = message.ErrorDescription;
             _command.Parameters["КоличествоОшибок"].Value = message.ErrorCount;
 

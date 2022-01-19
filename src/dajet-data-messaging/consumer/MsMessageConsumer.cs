@@ -78,11 +78,9 @@ namespace DaJet.Data.Messaging
                 message.MessageNumber = reader.IsDBNull("НомерСообщения") ? 0 : (long)reader.GetDecimal("НомерСообщения");
                 message.Uuid = reader.IsDBNull("Идентификатор") ? Guid.Empty : new Guid((byte[])reader["Идентификатор"]);
                 message.Headers = reader.IsDBNull("Заголовки") ? string.Empty : reader.GetString("Заголовки");
-                message.Sender = reader.IsDBNull("Отправитель") ? string.Empty : reader.GetString("Отправитель");
-                message.Recipients = reader.IsDBNull("Получатели") ? string.Empty : reader.GetString("Получатели");
-                message.OperationType = reader.IsDBNull("ТипОперации") ? string.Empty : reader.GetString("ТипОперации");
                 message.MessageType = reader.IsDBNull("ТипСообщения") ? string.Empty : reader.GetString("ТипСообщения");
                 message.MessageBody = reader.IsDBNull("ТелоСообщения") ? string.Empty : reader.GetString("ТелоСообщения");
+                message.Version = reader.IsDBNull("Версия") ? string.Empty : reader.GetString("Версия");
                 message.DateTimeStamp = reader.IsDBNull("ДатаВремя") ? DateTime.MinValue : reader.GetDateTime("ДатаВремя").AddYears(-_YearOffset);
 
                 yield return message;

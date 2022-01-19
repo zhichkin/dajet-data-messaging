@@ -25,10 +25,6 @@ namespace DaJet.Data.Messaging
         /// </summary>
         [Column("Отправитель")] public string Sender { get; set; } = string.Empty;
         /// <summary>
-        /// "ТипОперации" Тип операции: INSERT, UPDATE, UPSERT или DELETE - nvarchar(6)
-        /// </summary>
-        [Column("ТипОперации")] public string OperationType { get; set; } = string.Empty;
-        /// <summary>
         /// "ТипСообщения" Тип сообщения, например, "Справочник.Номенклатура" - nvarchar(1024)
         /// </summary>
         [Column("ТипСообщения")] public string MessageType { get; set; } = string.Empty;
@@ -36,6 +32,10 @@ namespace DaJet.Data.Messaging
         /// "ТелоСообщения" Тело сообщения в формате JSON или XML - nvarchar(max)
         /// </summary>
         [Column("ТелоСообщения")] public string MessageBody { get; set; } = string.Empty;
+        /// <summary>
+        /// "Версия" Версия данных тела сообщения (uuid + timestamp in BASE64 format) - nvarchar(48)
+        /// </summary>
+        [Column("Версия")] public string Version { get; set; } = string.Empty;
         /// <summary>
         /// "ДатаВремя" Время создания сообщения - datetime2
         /// </summary>
