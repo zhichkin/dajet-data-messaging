@@ -137,5 +137,74 @@ namespace DaJet.Data.Messaging
 
             return list;
         }
+
+        public void SelectMainNode(in string publicationName, out PublicationNode node)
+        {
+            if (!new MetadataService()
+                .UseDatabaseProvider(_provider)
+                .UseConnectionString(_connectionString)
+                .TryOpenInfoBase(out InfoBase infoBase, out string message))
+            {
+                throw new Exception(message);
+            }
+
+            // Выполнить поиск плана обмена
+            string metadataName = "ПланОбмена." + publicationName;
+            ApplicationObject metadata = infoBase.GetApplicationObjectByName(metadataName);
+            Publication publication = metadata as Publication;
+            if (publication == null)
+            {
+                throw new Exception($"План обмена \"{publicationName}\" не найден.");
+            }
+
+            // Выполнить поиск табличной части "ИсходящиеСообщения"
+            TablePart publications = null;
+            for (int i = 0; i < publication.TableParts.Count; i++)
+            {
+                if (publication.TableParts[i].Name == "ИсходящиеСообщения")
+                {
+                    publications = publication.TableParts[i];
+                    break;
+                }
+            }
+            if (publications == null)
+            {
+                throw new Exception($"Табличная часть \"ИсходящиеСообщения\" плана обмена \"{publicationName}\" не найдена.");
+            }
+
+            // Выполнить поиск табличной части "ВходящиеСообщения"
+            TablePart subscriptions = null;
+            for (int i = 0; i < publication.TableParts.Count; i++)
+            {
+                if (publication.TableParts[i].Name == "ВходящиеСообщения")
+                {
+                    subscriptions = publication.TableParts[i];
+                    break;
+                }
+            }
+            if (subscriptions == null)
+            {
+                throw new Exception($"Табличная часть \"ВходящиеСообщения\" плана обмена \"{publicationName}\" не найдена.");
+            }
+
+            // Получить данные плана обмена
+            Select(in publication);
+
+            if (publication.Publisher == null ||
+                publication.Publisher.Uuid == Guid.Empty ||
+                string.IsNullOrWhiteSpace(publication.Publisher.Code))
+            {
+                throw new Exception($"Главный узел плана обмена \"{publicationName}\" не найден или его код не указан.");
+            }
+
+            // Получить данные главного узла плана обмена (publisher)
+            node = Select(in publication, publication.Publisher.Uuid);
+            if (node == null)
+            {
+                throw new Exception($"Главный узел {{{publication.Publisher.Uuid}}} плана обмена \"{publicationName}\" не найден.");
+            }
+            node.Publications = SelectNodePublications(in publications, node.Uuid);
+            node.Subscriptions = SelectNodeSubscriptions(in subscriptions, node.Uuid);
+        }
     }
 }

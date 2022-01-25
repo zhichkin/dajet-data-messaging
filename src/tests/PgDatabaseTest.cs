@@ -199,5 +199,40 @@ namespace DaJet.Data.Messaging.Test
             }
             Console.WriteLine();
         }
+
+        [TestMethod] public void SelectMainNode()
+        {
+            PublicationSettings settings = new PublicationSettings(DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
+            settings.SelectMainNode("DaJetMessaging", out PublicationNode node);
+
+            Console.WriteLine();
+            Console.WriteLine($"{node.Code} : {node.Name} ({(node.IsActive ? "active" : "idle")})");
+            Console.WriteLine($"Broker: {node.BrokerServer}");
+            Console.WriteLine($"Node IN: {node.NodeIncomingQueue}");
+            Console.WriteLine($"Node OUT: {node.NodeOutgoingQueue}");
+            Console.WriteLine($"Broker IN: {node.BrokerIncomingQueue}");
+            Console.WriteLine($"Broker OUT: {node.BrokerOutgoingQueue}");
+            Console.WriteLine();
+
+            Console.WriteLine($"Publications:");
+            foreach (NodePublication item in node.Publications)
+            {
+                Console.WriteLine($"* Тип сообщения: {item.MessageType}");
+                Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
+                Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
+                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
+            }
+            Console.WriteLine();
+
+            Console.WriteLine($"Subscriptions:");
+            foreach (NodeSubscription item in node.Subscriptions)
+            {
+                Console.WriteLine($"* Тип сообщения: {item.MessageType}");
+                Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
+                Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
+                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
+            }
+            Console.WriteLine();
+        }
     }
 }

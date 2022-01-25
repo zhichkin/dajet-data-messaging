@@ -13,9 +13,11 @@
 Microsoft SQL Server and PostgreSQL are supported.</Description>
     <PackageProjectUrl>https://github.com/zhichkin/dajet-data-messaging</PackageProjectUrl>
     <RepositoryUrl>https://github.com/zhichkin/dajet-data-messaging</RepositoryUrl>
-    <PackageReleaseNotes>The 1C:Enterprise 8 database adapter provides producing and consuming messages from 1C information registers configured for use as incoming and outgoing message queues. All the magic happens at the database level. 1C clusters and application servers are not invloved.
-Microsoft SQL Server and PostgreSQL databases are supported.</PackageReleaseNotes>
-    <Version>2.0.0</Version>
+    <PackageReleaseNotes>Added new SelectMainNode to PublicationSettings class.
+Usage:
+PublicationSettings settings = new PublicationSettings(DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
+settings.SelectMainNode("MyExchangePlanName", out PublicationNode node);</PackageReleaseNotes>
+    <Version>2.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
