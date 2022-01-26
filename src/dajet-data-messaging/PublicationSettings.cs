@@ -36,7 +36,7 @@ namespace DaJet.Data.Messaging
                         Uuid = new Guid((byte[])reader["Ссылка"]),
                         Code = (string)reader["Код"],
                         Name = (string)reader["Наименование"],
-                        IsMarkedForDeletion = !(bool)reader["ПометкаУдаления"]
+                        IsMarkedForDeletion = (bool)reader["ПометкаУдаления"]
                     };
                     publication.Subscribers.Add(subscriber);
                 }
@@ -205,6 +205,182 @@ namespace DaJet.Data.Messaging
             }
             node.Publications = SelectNodePublications(in publications, node.Uuid);
             node.Subscriptions = SelectNodeSubscriptions(in subscriptions, node.Uuid);
+        }
+
+        public void SelectMessagingSettings(in string publicationName, out MessagingSettings settings)
+        {
+            settings = new MessagingSettings();
+
+            if (!new MetadataService()
+                .UseDatabaseProvider(_provider)
+                .UseConnectionString(_connectionString)
+                .TryOpenInfoBase(out InfoBase infoBase, out string message))
+            {
+                throw new Exception(message);
+            }
+
+            settings.YearOffset = infoBase.YearOffset;
+
+            // Выполнить поиск плана обмена
+            string metadataName = "ПланОбмена." + publicationName;
+            ApplicationObject metadata = infoBase.GetApplicationObjectByName(metadataName);
+            Publication publication = metadata as Publication;
+            if (publication == null)
+            {
+                throw new Exception($"План обмена \"{publicationName}\" не найден.");
+            }
+
+            // Выполнить поиск табличной части "ИсходящиеСообщения"
+            TablePart publications = null;
+            for (int i = 0; i < publication.TableParts.Count; i++)
+            {
+                if (publication.TableParts[i].Name == "ИсходящиеСообщения")
+                {
+                    publications = publication.TableParts[i];
+                    break;
+                }
+            }
+            if (publications == null)
+            {
+                throw new Exception($"Табличная часть \"ИсходящиеСообщения\" плана обмена \"{publicationName}\" не найдена.");
+            }
+
+            // Выполнить поиск табличной части "ВходящиеСообщения"
+            TablePart subscriptions = null;
+            for (int i = 0; i < publication.TableParts.Count; i++)
+            {
+                if (publication.TableParts[i].Name == "ВходящиеСообщения")
+                {
+                    subscriptions = publication.TableParts[i];
+                    break;
+                }
+            }
+            if (subscriptions == null)
+            {
+                throw new Exception($"Табличная часть \"ВходящиеСообщения\" плана обмена \"{publicationName}\" не найдена.");
+            }
+
+            // Получить данные плана обмена
+            Select(in publication);
+
+            if (publication.Publisher == null ||
+                publication.Publisher.Uuid == Guid.Empty ||
+                string.IsNullOrWhiteSpace(publication.Publisher.Code))
+            {
+                throw new Exception($"Главный узел плана обмена \"{publicationName}\" не найден или его код не указан.");
+            }
+            settings.Publication = publication;
+
+            // Получить данные главного узла плана обмена (publisher)
+            settings.MainNode = Select(in publication, publication.Publisher.Uuid);
+            if (settings.MainNode == null)
+            {
+                throw new Exception($"Главный узел {{{publication.Publisher.Uuid}}} плана обмена \"{publicationName}\" не найден.");
+            }
+            settings.MainNode.Publications = SelectNodePublications(in publications, settings.MainNode.Uuid);
+            settings.MainNode.Subscriptions = SelectNodeSubscriptions(in subscriptions, settings.MainNode.Uuid);
+
+            // Получить метаданные исходящей очереди сообщений
+            settings.OutgoingQueue = GetOutgoingQueueMetadata(in infoBase, settings.MainNode);
+
+            // Получить метаданные входящей очереди сообщений
+            settings.IncomingQueue = GetIncomingQueueMetadata(in infoBase, settings.MainNode);
+
+            // Валидировать интерфейс данных
+            DbInterfaceValidator validator = new DbInterfaceValidator();
+            ValidateOutgoingInterface(in validator, settings.OutgoingQueue);
+            ValidateIncomingInterface(in validator, settings.IncomingQueue);
+
+            // Выполнить конфигурирование объектов СУБД при необходимости
+            IQueueConfigurator configurator;
+            if (_provider == DatabaseProvider.SQLServer)
+            {
+                configurator = new MsQueueConfigurator(_connectionString);
+            }
+            else
+            {
+                configurator = new PgQueueConfigurator(_connectionString);
+            }
+            ConfigureOutgoingQueue(in configurator, settings.OutgoingQueue);
+            ConfigureIncomingQueue(in configurator, settings.IncomingQueue);
+        }
+        
+        private ApplicationObject GetOutgoingQueueMetadata(in InfoBase infoBase, in PublicationNode node)
+        {
+            string OUTGOING_QUEUE_NAME = $"РегистрСведений.{node.NodeOutgoingQueue}";
+
+            ApplicationObject queue = infoBase.GetApplicationObjectByName(OUTGOING_QUEUE_NAME);
+
+            if (queue == null)
+            {
+                throw new Exception($"Исходящая очередь \"{OUTGOING_QUEUE_NAME}\" не найдена.");
+            }
+
+            return queue;
+        }
+        private void ValidateOutgoingInterface(in DbInterfaceValidator validator, in ApplicationObject queue)
+        {
+            int version = validator.GetOutgoingInterfaceVersion(in queue);
+
+            if (version < 1)
+            {
+                throw new Exception($"Интерфейс данных исходящей очереди не поддерживается.");
+            }
+        }
+        private void ConfigureOutgoingQueue(in IQueueConfigurator configurator, in ApplicationObject queue)
+        {
+            configurator.ConfigureOutgoingMessageQueue(in queue, out List<string> errors);
+
+            if (errors.Count > 0)
+            {
+                string message = string.Empty;
+
+                foreach (string error in errors)
+                {
+                    message += error + Environment.NewLine;
+                }
+
+                throw new Exception(message);
+            }
+        }
+
+        private static ApplicationObject GetIncomingQueueMetadata(in InfoBase infoBase, in PublicationNode node)
+        {
+            string INCOMING_QUEUE_NAME = $"РегистрСведений.{node.NodeIncomingQueue}";
+
+            ApplicationObject queue = infoBase.GetApplicationObjectByName(INCOMING_QUEUE_NAME);
+
+            if (queue == null)
+            {
+                throw new Exception($"Входящая очередь \"{INCOMING_QUEUE_NAME}\" не найдена.");
+            }
+
+            return queue;
+        }
+        private static void ValidateIncomingInterface(in DbInterfaceValidator validator, in ApplicationObject queue)
+        {
+            int version = validator.GetIncomingInterfaceVersion(in queue);
+
+            if (version < 1)
+            {
+                throw new Exception($"Интерфейс данных входящей очереди не поддерживается.");
+            }
+        }
+        private static void ConfigureIncomingQueue(in IQueueConfigurator configurator, in ApplicationObject queue)
+        {
+            configurator.ConfigureIncomingMessageQueue(in queue, out List<string> errors);
+
+            if (errors.Count > 0)
+            {
+                string message = string.Empty;
+
+                foreach (string error in errors)
+                {
+                    message += error + Environment.NewLine;
+                }
+
+                throw new Exception(message);
+            }
         }
     }
 }

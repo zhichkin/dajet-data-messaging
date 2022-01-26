@@ -13,11 +13,11 @@
 Microsoft SQL Server and PostgreSQL are supported.</Description>
     <PackageProjectUrl>https://github.com/zhichkin/dajet-data-messaging</PackageProjectUrl>
     <RepositoryUrl>https://github.com/zhichkin/dajet-data-messaging</RepositoryUrl>
-    <PackageReleaseNotes>Added new SelectMainNode to PublicationSettings class.
+    <PackageReleaseNotes>Added new SelectMessagingSettings method to PublicationSettings class.
 Usage:
 PublicationSettings settings = new PublicationSettings(DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
-settings.SelectMainNode("MyExchangePlanName", out PublicationNode node);</PackageReleaseNotes>
-    <Version>2.1.0</Version>
+settings.SelectMessagingSettings("MyExchangePlanName", out MessagingSettings settings);</PackageReleaseNotes>
+    <Version>2.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

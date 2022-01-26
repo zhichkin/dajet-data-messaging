@@ -234,5 +234,40 @@ namespace DaJet.Data.Messaging.Test
             }
             Console.WriteLine();
         }
+
+        [TestMethod] public void SelectMessagingSettings()
+        {
+            new PublicationSettings(DatabaseProvider.SQLServer, MS_CONNECTION_STRING)
+                .SelectMessagingSettings("DaJetMessaging", out MessagingSettings settings);
+
+            Console.WriteLine();
+            Console.WriteLine($"{settings.MainNode.Code} : {settings.MainNode.Name} ({(settings.MainNode.IsActive ? "active" : "idle")})");
+            Console.WriteLine($"Broker: {settings.MainNode.BrokerServer}");
+            Console.WriteLine($"Node IN: {settings.MainNode.NodeIncomingQueue}");
+            Console.WriteLine($"Node OUT: {settings.MainNode.NodeOutgoingQueue}");
+            Console.WriteLine($"Broker IN: {settings.MainNode.BrokerIncomingQueue}");
+            Console.WriteLine($"Broker OUT: {settings.MainNode.BrokerOutgoingQueue}");
+            Console.WriteLine();
+
+            Console.WriteLine($"Publications:");
+            foreach (NodePublication item in settings.MainNode.Publications)
+            {
+                Console.WriteLine($"* Тип сообщения: {item.MessageType}");
+                Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
+                Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
+                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
+            }
+            Console.WriteLine();
+
+            Console.WriteLine($"Subscriptions:");
+            foreach (NodeSubscription item in settings.MainNode.Subscriptions)
+            {
+                Console.WriteLine($"* Тип сообщения: {item.MessageType}");
+                Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
+                Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
+                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
+            }
+            Console.WriteLine();
+        }
     }
 }
