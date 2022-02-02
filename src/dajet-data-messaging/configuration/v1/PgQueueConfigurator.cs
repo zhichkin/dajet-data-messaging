@@ -3,7 +3,7 @@ using DaJet.Metadata.Model;
 using System;
 using System.Collections.Generic;
 
-namespace DaJet.Data.Messaging
+namespace DaJet.Data.Messaging.V1
 {
     public sealed class PgQueueConfigurator : IQueueConfigurator
     {
@@ -11,12 +11,9 @@ namespace DaJet.Data.Messaging
         private readonly QueryExecutor _executor;
         public PgQueueConfigurator(in string connectionString)
         {
-            ConnectionString = connectionString;
-
             _builder = new QueryBuilder(DatabaseProvider.PostgreSQL);
             _executor = new QueryExecutor(DatabaseProvider.PostgreSQL, in connectionString);
         }
-        public string ConnectionString { get; }
 
         #region "CONFIGURE SEQUENCE"
 

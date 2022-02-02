@@ -97,12 +97,13 @@ namespace DaJet.Data.Messaging
 
             foreach (IDataReader reader in executor.ExecuteReader(NODE_PUBLICATIONS_SELECT_SCRIPT, 10, parameters))
             {
-                NodePublication item = new NodePublication();
-
-                item.MessageType = (string)reader["ТипСообщения"];
-                item.NodeQueue = (string)reader["ОчередьСообщенийУзла"];
-                item.BrokerQueue = (string)reader["ОчередьСообщенийБрокера"];
-                item.UseVersioning = (bool)reader["Версионирование"];
+                NodePublication item = new NodePublication
+                {
+                    MessageType = (string)reader["ТипСообщения"],
+                    NodeQueue = (string)reader["ОчередьСообщенийУзла"],
+                    BrokerQueue = (string)reader["ОчередьСообщенийБрокера"],
+                    UseVersioning = (bool)reader["Версионирование"]
+                };
 
                 list.Add(item);
             }
@@ -125,12 +126,13 @@ namespace DaJet.Data.Messaging
 
             foreach (IDataReader reader in executor.ExecuteReader(NODE_SUBSCRIPTIONS_SELECT_SCRIPT, 10, parameters))
             {
-                NodeSubscription item = new NodeSubscription();
-
-                item.MessageType = (string)reader["ТипСообщения"];
-                item.NodeQueue = (string)reader["ОчередьСообщенийУзла"];
-                item.BrokerQueue = (string)reader["ОчередьСообщенийБрокера"];
-                item.UseVersioning = (bool)reader["Версионирование"];
+                NodeSubscription item = new NodeSubscription
+                {
+                    MessageType = (string)reader["ТипСообщения"],
+                    NodeQueue = (string)reader["ОчередьСообщенийУзла"],
+                    BrokerQueue = (string)reader["ОчередьСообщенийБрокера"],
+                    UseVersioning = (bool)reader["Версионирование"]
+                };
 
                 list.Add(item);
             }
@@ -151,8 +153,7 @@ namespace DaJet.Data.Messaging
             // Выполнить поиск плана обмена
             string metadataName = "ПланОбмена." + publicationName;
             ApplicationObject metadata = infoBase.GetApplicationObjectByName(metadataName);
-            Publication publication = metadata as Publication;
-            if (publication == null)
+            if (!(metadata is Publication publication))
             {
                 throw new Exception($"План обмена \"{publicationName}\" не найден.");
             }
@@ -224,8 +225,7 @@ namespace DaJet.Data.Messaging
             // Выполнить поиск плана обмена
             string metadataName = "ПланОбмена." + publicationName;
             ApplicationObject metadata = infoBase.GetApplicationObjectByName(metadataName);
-            Publication publication = metadata as Publication;
-            if (publication == null)
+            if (!(metadata is Publication publication))
             {
                 throw new Exception($"План обмена \"{publicationName}\" не найден.");
             }
@@ -288,19 +288,11 @@ namespace DaJet.Data.Messaging
 
             // Валидировать интерфейс данных
             DbInterfaceValidator validator = new DbInterfaceValidator();
-            ValidateOutgoingInterface(in validator, settings.OutgoingQueue);
+            int version = GetOutgoingInterfaceVersion(in validator, settings.OutgoingQueue);
             ValidateIncomingInterface(in validator, settings.IncomingQueue);
 
             // Выполнить конфигурирование объектов СУБД при необходимости
-            IQueueConfigurator configurator;
-            if (_provider == DatabaseProvider.SQLServer)
-            {
-                configurator = new MsQueueConfigurator(_connectionString);
-            }
-            else
-            {
-                configurator = new PgQueueConfigurator(_connectionString);
-            }
+            IQueueConfigurator configurator = new DbQueueConfigurator(version, _provider, _connectionString);
             ConfigureOutgoingQueue(in configurator, settings.OutgoingQueue);
             ConfigureIncomingQueue(in configurator, settings.IncomingQueue);
         }
@@ -318,7 +310,7 @@ namespace DaJet.Data.Messaging
 
             return queue;
         }
-        private void ValidateOutgoingInterface(in DbInterfaceValidator validator, in ApplicationObject queue)
+        private int GetOutgoingInterfaceVersion(in DbInterfaceValidator validator, in ApplicationObject queue)
         {
             int version = validator.GetOutgoingInterfaceVersion(in queue);
 
@@ -326,6 +318,8 @@ namespace DaJet.Data.Messaging
             {
                 throw new Exception($"Интерфейс данных исходящей очереди не поддерживается.");
             }
+
+            return version;
         }
         private void ConfigureOutgoingQueue(in IQueueConfigurator configurator, in ApplicationObject queue)
         {

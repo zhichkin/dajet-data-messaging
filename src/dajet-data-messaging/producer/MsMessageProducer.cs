@@ -8,24 +8,49 @@ namespace DaJet.Data.Messaging
 {
     public sealed class MsMessageProducer : IMessageProducer
     {
+        private const string DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR
+            = "Интерфейс данных входящей очереди не поддерживается.";
+
+        private int _version;
         private SqlCommand _command;
         private SqlConnection _connection;
         private SqlTransaction _transaction;
-        private readonly int _YearOffset;
         private readonly string _connectionString;
         private string INCOMING_QUEUE_INSERT_SCRIPT;
-        public MsMessageProducer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
+        private IncomingMessageDataMapper _message;
+        public MsMessageProducer(in string connectionString, in ApplicationObject queue)
         {
-            _YearOffset = yearOffset;
             _connectionString = connectionString;
-            Initialize(in queue);
+            InitializeVersion(in queue);
+            BuildInsertScript(in queue);
+            InitializeDataAccessObjects();
         }
-        private void Initialize(in ApplicationObject queue)
+        private void InitializeVersion(in ApplicationObject queue)
         {
+            DbInterfaceValidator validator = new DbInterfaceValidator();
+
+            _version = validator.GetIncomingInterfaceVersion(in queue);
+
+            if (_version < 1)
+            {
+                throw new Exception(DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR);
+            }
+        }
+        private void BuildInsertScript(in ApplicationObject queue)
+        {
+            _message = IncomingMessageDataMapper.Create(_version);
+
+            if (_message == null)
+            {
+                throw new Exception(DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR);
+            }
+
             INCOMING_QUEUE_INSERT_SCRIPT =
                 new QueryBuilder(DatabaseProvider.SQLServer)
-                .BuildIncomingQueueInsertScript(in queue);
-
+                .BuildIncomingQueueInsertScript(in queue, in _message);
+        }
+        private void InitializeDataAccessObjects()
+        {
             try
             {
                 _connection = new SqlConnection(_connectionString);
@@ -36,7 +61,7 @@ namespace DaJet.Data.Messaging
                 _command.CommandText = INCOMING_QUEUE_INSERT_SCRIPT;
                 _command.CommandTimeout = 10; // seconds
 
-                ConfigureCommandParameters();
+                _message.ConfigureCommandParameters(in _command);
             }
             catch
             {
@@ -44,27 +69,9 @@ namespace DaJet.Data.Messaging
                 throw;
             }
         }
-        private void ConfigureCommandParameters()
+        public void Insert(in IncomingMessageDataMapper message)
         {
-            _command.Parameters.Add("Заголовки", SqlDbType.NVarChar);
-            _command.Parameters.Add("Отправитель", SqlDbType.NVarChar);
-            _command.Parameters.Add("ТипСообщения", SqlDbType.NVarChar);
-            _command.Parameters.Add("ТелоСообщения", SqlDbType.NVarChar);
-            _command.Parameters.Add("Версия", SqlDbType.NVarChar);
-            _command.Parameters.Add("ДатаВремя", SqlDbType.DateTime2);
-            _command.Parameters.Add("ОписаниеОшибки", SqlDbType.NVarChar);
-            _command.Parameters.Add("КоличествоОшибок", SqlDbType.Int);
-        }
-        public void Insert(in IncomingMessage message)
-        {
-            _command.Parameters["Заголовки"].Value = message.Headers;
-            _command.Parameters["Отправитель"].Value = message.Sender;
-            _command.Parameters["ТипСообщения"].Value = message.MessageType;
-            _command.Parameters["ТелоСообщения"].Value = message.MessageBody;
-            _command.Parameters["Версия"].Value = message.Version;
-            _command.Parameters["ДатаВремя"].Value = message.DateTimeStamp.AddYears(_YearOffset);
-            _command.Parameters["ОписаниеОшибки"].Value = message.ErrorDescription;
-            _command.Parameters["КоличествоОшибок"].Value = message.ErrorCount;
+            _message.SetMessageData(in message, in _command);
 
             _ = _command.ExecuteNonQuery();
         }
@@ -92,6 +99,8 @@ namespace DaJet.Data.Messaging
 
             _connection?.Dispose();
             _connection = null;
+
+            _message = null;
         }
     }
 }

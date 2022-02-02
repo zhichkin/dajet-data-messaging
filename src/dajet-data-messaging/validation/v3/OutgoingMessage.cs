@@ -3,7 +3,6 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
-using System.Data.Common;
 
 namespace DaJet.Data.Messaging.V3
 {
@@ -11,7 +10,7 @@ namespace DaJet.Data.Messaging.V3
     /// Табличный интерфейс исходящей очереди сообщений
     /// (непериодический независимый регистр сведений)
     /// </summary>
-    [Table("РегистрСведений.ИсходящаяОчередь")] [Version(3)] public sealed class OutgoingMessage : IOutgoingMessage
+    [Table("РегистрСведений.ИсходящаяОчередь")] [Version(3)] public sealed class OutgoingMessage : OutgoingMessageDataMapper
     {
         /// <summary>
         /// "МоментВремени" Порядковый номер сообщения (может генерироваться средствами СУБД) - numeric(19,0)
@@ -54,7 +53,7 @@ namespace DaJet.Data.Messaging.V3
 
         private const string MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
             "WITH cte AS (SELECT TOP (@MessageCount) " +
-            "{МоментВремени} AS [МоментВремени], {Идентификатор} AS [Идентификатор], DATEADD(YEAR, -@YearOffset, {ДатаВремя}) AS [ДатаВремя], " +
+            "{МоментВремени} AS [МоментВремени], {Идентификатор} AS [Идентификатор], {ДатаВремя} AS [ДатаВремя], " +
             "{Отправитель} AS [Отправитель], " +
             "{Получатели} AS [Получатели], {ТипОперации} AS [ТипОперации], {ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], " +
             "{ИдентификаторОбъекта} AS [ИдентификаторОбъекта] " +
@@ -67,11 +66,12 @@ namespace DaJet.Data.Messaging.V3
             "WITH cte AS (SELECT {МоментВремени}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {МоментВремени} ASC, {Идентификатор} ASC LIMIT @MessageCount) " +
             "DELETE FROM {TABLE_NAME} t USING cte WHERE t.{МоментВремени} = cte.{МоментВремени} AND t.{Идентификатор} = cte.{Идентификатор} " +
             "RETURNING t.{МоментВремени} AS \"МоментВремени\", t.{Идентификатор} AS \"Идентификатор\", " +
-            "t.{ДатаВремя} - interval '1 year' * @YearOffset AS \"ДатаВремя\", CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", " +
+            "t.{ДатаВремя} AS \"ДатаВремя\", CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", " +
             "CAST(t.{Получатели} AS varchar) AS \"Получатели\", CAST(t.{ТипОперации} AS varchar) AS \"ТипОперации\", " +
-            "CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\";";
+            "CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", " +
+            "t.{ИдентификаторОбъекта} AS \"ИдентификаторОбъекта\";";
 
-        public string GetSelectDataRowsScript(DatabaseProvider provider)
+        public override string GetSelectDataRowsScript(DatabaseProvider provider)
         {
             if (provider == DatabaseProvider.SQLServer)
             {
@@ -82,7 +82,7 @@ namespace DaJet.Data.Messaging.V3
                 return PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE;
             }
         }
-        public void GetMessageData<T>(in T source, in IOutgoingMessage target) where T : DbDataReader
+        public override void GetMessageData<T>(in T source, in OutgoingMessageDataMapper target)
         {
             if (!(target is OutgoingMessage message))
             {

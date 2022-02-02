@@ -18,13 +18,11 @@ namespace DaJet.Data.Messaging
         private SqlConnection _connection;
         private SqlTransaction _transaction;
         private int _recordsAffected;
-        private readonly int _YearOffset;
         private readonly string _connectionString;
         private string OUTGOING_QUEUE_SELECT_SCRIPT;
-        private IOutgoingMessage _message;
-        public MsMessageConsumer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
+        private OutgoingMessageDataMapper _message;
+        public MsMessageConsumer(in string connectionString, in ApplicationObject queue)
         {
-            _YearOffset = yearOffset;
             _connectionString = connectionString;
             InitializeVersion(in queue);
             BuildSelectScript(in queue);
@@ -43,7 +41,7 @@ namespace DaJet.Data.Messaging
         }
         private void BuildSelectScript(in ApplicationObject queue)
         {
-            _message = IOutgoingMessage.CreateMessage(_version);
+            _message = OutgoingMessageDataMapper.Create(_version);
 
             if (_message == null)
             {
@@ -77,7 +75,6 @@ namespace DaJet.Data.Messaging
         
         private void ConfigureCommandParameters()
         {
-            _command.Parameters.Add("YearOffset", SqlDbType.Int);
             _command.Parameters.Add("MessageCount", SqlDbType.Int);
         }
         public int RecordsAffected { get { return _recordsAffected; } }
@@ -86,7 +83,6 @@ namespace DaJet.Data.Messaging
             _recordsAffected = 0;
 
             _command.Parameters["MessageCount"].Value = limit;
-            _command.Parameters["YearOffset"].Value = _YearOffset;
 
             using (_reader = _command.ExecuteReader())
             {
@@ -99,7 +95,7 @@ namespace DaJet.Data.Messaging
                 _recordsAffected = _reader.RecordsAffected;
             }
         }
-        public IEnumerable<IOutgoingMessage> Select(int limit = 1000)
+        public IEnumerable<OutgoingMessageDataMapper> Select(int limit = 1000)
         {
             foreach (SqlDataReader reader in SelectDataRows(limit))
             {

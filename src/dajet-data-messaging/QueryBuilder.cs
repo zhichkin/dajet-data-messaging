@@ -2,7 +2,6 @@
 using DaJet.Metadata;
 using DaJet.Metadata.Model;
 using System.Collections.Generic;
-using System.Text;
 
 namespace DaJet.Data
 {
@@ -90,31 +89,11 @@ namespace DaJet.Data
 
         #region "INCOMING QUEUE INSERT SCRIPTS"
 
-        private const string MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
-            "INSERT {TABLE_NAME} " +
-            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {Версия}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
-            "SELECT NEXT VALUE FOR {SEQUENCE_NAME}, " +
-            "@Заголовки, @Отправитель, @ТипСообщения, @ТелоСообщения, @Версия, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
-
-        private const string PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
-            "INSERT INTO {TABLE_NAME} " +
-            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {Версия}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
-            "SELECT CAST(nextval('{SEQUENCE_NAME}') AS numeric(19,0)), " +
-            "CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
-            "CAST(@ТелоСообщения AS mvarchar), CAST(@Версия AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
-
-        public string BuildIncomingQueueInsertScript(in ApplicationObject queue)
+        public string BuildIncomingQueueInsertScript(in ApplicationObject queue, in IncomingMessageDataMapper message)
         {
             List<string> templates;
 
-            if (_provider == DatabaseProvider.SQLServer)
-            {
-                templates = new List<string>() { MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE };
-            }
-            else
-            {
-                templates = new List<string>() { PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE };
-            }
+            templates = new List<string>() { message.GetInsertScript(_provider) };
 
             ConfigureScripts(in templates, in queue, out List<string> scripts);
 
@@ -125,7 +104,7 @@ namespace DaJet.Data
 
         #region "OUTGOING QUEUE SELECT SCRIPTS"
 
-        public string BuildOutgoingQueueSelectScript(in ApplicationObject queue, in IOutgoingMessage message)
+        public string BuildOutgoingQueueSelectScript(in ApplicationObject queue, in OutgoingMessageDataMapper message)
         {
             List<string> templates;
 

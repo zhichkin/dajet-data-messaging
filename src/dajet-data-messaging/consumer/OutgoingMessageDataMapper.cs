@@ -3,11 +3,11 @@ using System.Data.Common;
 
 namespace DaJet.Data.Messaging
 {
-    public interface IOutgoingMessage
+    public abstract class OutgoingMessageDataMapper
     {
-        string GetSelectDataRowsScript(DatabaseProvider provider);
-        void GetMessageData<T>(in T source, in IOutgoingMessage target) where T : DbDataReader;
-        public static IOutgoingMessage CreateMessage(int version)
+        public abstract string GetSelectDataRowsScript(DatabaseProvider provider);
+        public abstract void GetMessageData<T>(in T source, in OutgoingMessageDataMapper target) where T : DbDataReader;
+        public static OutgoingMessageDataMapper Create(int version)
         {
             if (version == 1)
             {

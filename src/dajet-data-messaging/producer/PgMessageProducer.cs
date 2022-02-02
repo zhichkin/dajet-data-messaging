@@ -1,7 +1,6 @@
 ﻿using DaJet.Metadata;
 using DaJet.Metadata.Model;
 using Npgsql;
-using NpgsqlTypes;
 using System;
 using System.Data;
 
@@ -9,24 +8,49 @@ namespace DaJet.Data.Messaging
 {
     public sealed class PgMessageProducer : IMessageProducer
     {
+        private const string DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR
+            = "Интерфейс данных входящей очереди не поддерживается.";
+
+        private int _version;
         private NpgsqlCommand _command;
         private NpgsqlConnection _connection;
         private NpgsqlTransaction _transaction;
-        private readonly int _YearOffset;
         private readonly string _connectionString;
         private string INCOMING_QUEUE_INSERT_SCRIPT;
-        public PgMessageProducer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
+        private IncomingMessageDataMapper _message;
+        public PgMessageProducer(in string connectionString, in ApplicationObject queue)
         {
-            _YearOffset = yearOffset;
             _connectionString = connectionString;
-            Initialize(in queue);
+            InitializeVersion(in queue);
+            BuildInsertScript(in queue);
+            InitializeDataAccessObjects();
         }
-        private void Initialize(in ApplicationObject queue)
+        private void InitializeVersion(in ApplicationObject queue)
         {
+            DbInterfaceValidator validator = new DbInterfaceValidator();
+
+            _version = validator.GetIncomingInterfaceVersion(in queue);
+
+            if (_version < 1)
+            {
+                throw new Exception(DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR);
+            }
+        }
+        private void BuildInsertScript(in ApplicationObject queue)
+        {
+            _message = IncomingMessageDataMapper.Create(_version);
+
+            if (_message == null)
+            {
+                throw new Exception(DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR);
+            }
+
             INCOMING_QUEUE_INSERT_SCRIPT =
                 new QueryBuilder(DatabaseProvider.PostgreSQL)
-                .BuildIncomingQueueInsertScript(in queue);
-
+                .BuildIncomingQueueInsertScript(in queue, in _message);
+        }
+        private void InitializeDataAccessObjects()
+        {
             try
             {
                 _connection = new NpgsqlConnection(_connectionString);
@@ -37,7 +61,7 @@ namespace DaJet.Data.Messaging
                 _command.CommandText = INCOMING_QUEUE_INSERT_SCRIPT;
                 _command.CommandTimeout = 10; // seconds
 
-                ConfigureCommandParameters();
+                _message.ConfigureCommandParameters(in _command);
             }
             catch
             {
@@ -45,27 +69,9 @@ namespace DaJet.Data.Messaging
                 throw;
             }
         }
-        private void ConfigureCommandParameters()
+        public void Insert(in IncomingMessageDataMapper message)
         {
-            _command.Parameters.Add("Заголовки", NpgsqlDbType.Varchar);
-            _command.Parameters.Add("Отправитель", NpgsqlDbType.Varchar);
-            _command.Parameters.Add("ТипСообщения", NpgsqlDbType.Varchar);
-            _command.Parameters.Add("ТелоСообщения", NpgsqlDbType.Varchar);
-            _command.Parameters.Add("Версия", NpgsqlDbType.Varchar);
-            _command.Parameters.Add("ДатаВремя", NpgsqlDbType.Timestamp);
-            _command.Parameters.Add("ОписаниеОшибки", NpgsqlDbType.Varchar);
-            _command.Parameters.Add("КоличествоОшибок", NpgsqlDbType.Integer);
-        }
-        public void Insert(in IncomingMessage message)
-        {
-            _command.Parameters["Заголовки"].Value = message.Headers;
-            _command.Parameters["Отправитель"].Value = message.Sender;
-            _command.Parameters["ТипСообщения"].Value = message.MessageType;
-            _command.Parameters["ТелоСообщения"].Value = message.MessageBody;
-            _command.Parameters["Версия"].Value = message.Version;
-            _command.Parameters["ДатаВремя"].Value = message.DateTimeStamp.AddYears(_YearOffset);
-            _command.Parameters["ОписаниеОшибки"].Value = message.ErrorDescription;
-            _command.Parameters["КоличествоОшибок"].Value = message.ErrorCount;
+            message.SetMessageData(in message, in _command);
 
             _ = _command.ExecuteNonQuery();
         }
@@ -93,6 +99,8 @@ namespace DaJet.Data.Messaging
 
             _connection?.Dispose();
             _connection = null;
+
+            _message = null;
         }
     }
 }

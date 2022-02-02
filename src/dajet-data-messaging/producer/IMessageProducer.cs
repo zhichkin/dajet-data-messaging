@@ -6,6 +6,6 @@ namespace DaJet.Data.Messaging
     {
         void TxBegin();
         void TxCommit();
-        void Insert(in IncomingMessage message);
+        void Insert(in IncomingMessageDataMapper message);
     }
 }

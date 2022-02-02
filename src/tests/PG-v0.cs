@@ -8,22 +8,23 @@ using System.Reflection;
 
 namespace DaJet.Data.Messaging.Test
 {
-    [TestClass] public class MsDatabaseTest
+    [TestClass] public class PG_v0
     {
         private readonly InfoBase _infoBase;
         private readonly ApplicationObject _incomingQueue;
         private readonly ApplicationObject _outgoingQueue;
-        private const string MS_CONNECTION_STRING = "Data Source=zhichkin;Initial Catalog=test_node_1;Integrated Security=True";
+        //private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
+        private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=test_node_2;Username=postgres;Password=postgres;";
 
         private readonly DbInterfaceValidator _validator = new DbInterfaceValidator();
-        private readonly QueryBuilder _builder = new QueryBuilder(DatabaseProvider.SQLServer);
-        private readonly MsQueueConfigurator _configurator = new MsQueueConfigurator(MS_CONNECTION_STRING);
+        private readonly QueryBuilder _builder = new QueryBuilder(DatabaseProvider.PostgreSQL);
+        private readonly DbQueueConfigurator _configurator = new DbQueueConfigurator(1, DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
 
-        public MsDatabaseTest()
+        public PG_v0()
         {
             if (!new MetadataService()
-                .UseDatabaseProvider(DatabaseProvider.SQLServer)
-                .UseConnectionString(MS_CONNECTION_STRING)
+                .UseDatabaseProvider(DatabaseProvider.PostgreSQL)
+                .UseConnectionString(PG_CONNECTION_STRING)
                 .TryOpenInfoBase(out InfoBase infoBase, out string error))
             {
                 Console.WriteLine(error);
@@ -36,23 +37,22 @@ namespace DaJet.Data.Messaging.Test
 
         [TestMethod] public void Validate_DbInterface()
         {
-            int version = -1;
-
-            version = _validator.GetIncomingInterfaceVersion(in _incomingQueue);
-            Console.WriteLine($"Incoming queue version = {version}");
-
-            version = _validator.GetOutgoingInterfaceVersion(in _outgoingQueue);
-            Console.WriteLine($"Outgoing queue version = {version}");
+            Console.WriteLine($"Incoming queue version = {_validator.GetIncomingInterfaceVersion(in _incomingQueue)}");
+            Console.WriteLine($"Outgoing queue version = {_validator.GetOutgoingInterfaceVersion(in _outgoingQueue)}");
         }
         [TestMethod] public void Script_IncomingInsert()
         {
-            Console.WriteLine($"{_builder.BuildIncomingQueueInsertScript(in _incomingQueue)}");
+            for (int version = 1; version < 3; version++)
+            {
+                Console.WriteLine($"{_builder.BuildIncomingQueueInsertScript(in _incomingQueue, IncomingMessageDataMapper.Create(version))}");
+                Console.WriteLine();
+            }
         }
         [TestMethod] public void Script_OutgoingSelect()
         {
             for (int version = 1; version < 4; version++)
             {
-                Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in _outgoingQueue, IOutgoingMessage.CreateMessage(version))}");
+                Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in _outgoingQueue, OutgoingMessageDataMapper.Create(version))}");
                 Console.WriteLine();
             }
         }
@@ -89,18 +89,18 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine("Outgoing queue configured successfully.");
             }
         }
-        
-        private IEnumerable<IncomingMessage> GetTestIncomingMessages()
+
+        private IEnumerable<IncomingMessageDataMapper> GetTestIncomingMessages()
         {
             for (int i = 0; i < 10; i++)
             {
-                yield return new IncomingMessage()
+                yield return new V1.IncomingMessage()
                 {
                     Sender = "DaJet",
                     Headers = string.Empty,
                     MessageType = "test",
                     MessageBody = $"{{ \"message\": {(i + 1)} }}",
-                    DateTimeStamp = DateTime.Now
+                    DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset)
                 };
             }
         }
@@ -108,15 +108,15 @@ namespace DaJet.Data.Messaging.Test
         {
             int total = 0;
 
-            using (IMessageProducer producer = new MsMessageProducer(MS_CONNECTION_STRING, in _incomingQueue, _infoBase.YearOffset))
+            using (IMessageProducer producer = new PgMessageProducer(PG_CONNECTION_STRING, in _incomingQueue))
             {
-                foreach (IncomingMessage message in GetTestIncomingMessages())
+                foreach (IncomingMessageDataMapper message in GetTestIncomingMessages())
                 {
                     producer.Insert(in message); total++;
                 }
 
                 producer.TxBegin();
-                foreach (IncomingMessage message in GetTestIncomingMessages())
+                foreach (IncomingMessageDataMapper message in GetTestIncomingMessages())
                 {
                     producer.Insert(in message); total++;
                 }
@@ -129,23 +129,23 @@ namespace DaJet.Data.Messaging.Test
         {
             int total = 0;
 
-            using (IMessageConsumer consumer = new MsMessageConsumer(MS_CONNECTION_STRING, in _outgoingQueue, _infoBase.YearOffset))
+            using (IMessageConsumer consumer = new PgMessageConsumer(PG_CONNECTION_STRING, in _outgoingQueue))
             {
                 do
                 {
-                    foreach (IOutgoingMessage message in consumer.Select())
-                    {
-                        total++;
-
-                        ShowMessageData(in message);
-                    }
-
-                    //consumer.TxBegin();
-                    //foreach (IOutgoingMessage message in consumer.Select())
+                    //foreach (OutgoingMessageDataMapper message in consumer.Select())
                     //{
                     //    total++;
+                    //    ShowMessageData(in message);
                     //}
-                    //consumer.TxCommit();
+
+                    consumer.TxBegin();
+                    foreach (OutgoingMessageDataMapper message in consumer.Select())
+                    {
+                        total++;
+                        ShowMessageData(in message);
+                    }
+                    consumer.TxCommit();
 
                     Console.WriteLine($"Count = {consumer.RecordsAffected}");
                 }
@@ -153,7 +153,7 @@ namespace DaJet.Data.Messaging.Test
             }
             Console.WriteLine($"Total = {total}");
         }
-        private void ShowMessageData(in IOutgoingMessage message)
+        private void ShowMessageData(in OutgoingMessageDataMapper message)
         {
             Type type = message.GetType();
 
@@ -173,7 +173,7 @@ namespace DaJet.Data.Messaging.Test
             TablePart publications = publication.TableParts.Where(t => t.Name == "»сход€щие—ообщени€").FirstOrDefault();
             TablePart subscriptions = publication.TableParts.Where(t => t.Name == "¬ход€щие—ообщени€").FirstOrDefault();
 
-            PublicationSettings settings = new PublicationSettings(DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
+            PublicationSettings settings = new PublicationSettings(DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
             settings.Select(in publication);
 
             Console.WriteLine($"”зел: {publication.Publisher.Code} ({publication.Publisher.Name})");
@@ -218,7 +218,7 @@ namespace DaJet.Data.Messaging.Test
 
         [TestMethod] public void SelectMainNode()
         {
-            PublicationSettings settings = new PublicationSettings(DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
+            PublicationSettings settings = new PublicationSettings(DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
             settings.SelectMainNode("DaJetMessaging", out PublicationNode node);
 
             Console.WriteLine();
@@ -253,7 +253,7 @@ namespace DaJet.Data.Messaging.Test
 
         [TestMethod] public void SelectMessagingSettings()
         {
-            new PublicationSettings(DatabaseProvider.SQLServer, MS_CONNECTION_STRING)
+            new PublicationSettings(DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING)
                 .SelectMessagingSettings("DaJetMessaging", out MessagingSettings settings);
 
             Console.WriteLine();
