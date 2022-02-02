@@ -7,7 +7,7 @@ namespace DaJet.Data.Messaging
     {
         void TxBegin();
         void TxCommit();
-        IEnumerable<OutgoingMessage> Select(int limit = 1000);
+        IEnumerable<IOutgoingMessage> Select(int limit = 1000);
         int RecordsAffected { get; }
     }
 }

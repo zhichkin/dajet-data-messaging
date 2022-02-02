@@ -10,6 +10,10 @@ namespace DaJet.Data.Messaging
 {
     public sealed class PgMessageConsumer : IMessageConsumer
     {
+        private const string DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR
+            = "Интерфейс данных исходящей очереди не поддерживается.";
+
+        private int _version;
         private NpgsqlCommand _command;
         private NpgsqlDataReader _reader;
         private NpgsqlConnection _connection;
@@ -18,18 +22,41 @@ namespace DaJet.Data.Messaging
         private readonly int _YearOffset;
         private readonly string _connectionString;
         private string OUTGOING_QUEUE_SELECT_SCRIPT;
+        private IOutgoingMessage _message;
         public PgMessageConsumer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
         {
             _YearOffset = yearOffset;
             _connectionString = connectionString;
-            Initialize(in queue);
+            InitializeVersion(in queue);
+            BuildSelectScript(in queue);
+            InitializeDataAccessObjects();
         }
-        private void Initialize(in ApplicationObject queue)
+        private void InitializeVersion(in ApplicationObject queue)
         {
+            DbInterfaceValidator validator = new DbInterfaceValidator();
+
+            _version = validator.GetOutgoingInterfaceVersion(in queue);
+
+            if (_version < 1)
+            {
+                throw new Exception(DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR);
+            }
+        }
+        private void BuildSelectScript(in ApplicationObject queue)
+        {
+            _message = IOutgoingMessage.CreateMessage(_version);
+
+            if (_message == null)
+            {
+                throw new Exception(DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR);
+            }
+
             OUTGOING_QUEUE_SELECT_SCRIPT =
                 new QueryBuilder(DatabaseProvider.PostgreSQL)
-                .BuildOutgoingQueueSelectScript(in queue);
-
+                .BuildOutgoingQueueSelectScript(in queue, _message);
+        }
+        private void InitializeDataAccessObjects()
+        {
             try
             {
                 _connection = new NpgsqlConnection(_connectionString);
@@ -50,12 +77,16 @@ namespace DaJet.Data.Messaging
         }
         private void ConfigureCommandParameters()
         {
+            _command.Parameters.Add("YearOffset", NpgsqlDbType.Integer);
             _command.Parameters.Add("MessageCount", NpgsqlDbType.Integer);
         }
         public int RecordsAffected { get { return _recordsAffected; } }
         private IEnumerable<NpgsqlDataReader> SelectDataRows(int limit = 1000)
         {
+            _recordsAffected = 0;
+
             _command.Parameters["MessageCount"].Value = limit;
+            _command.Parameters["YearOffset"].Value = _YearOffset;
 
             using (_reader = _command.ExecuteReader())
             {
@@ -68,21 +99,13 @@ namespace DaJet.Data.Messaging
                 _recordsAffected = _reader.RecordsAffected;
             }
         }
-        public IEnumerable<OutgoingMessage> Select(int limit = 1000)
+        public IEnumerable<IOutgoingMessage> Select(int limit = 1000)
         {
-            OutgoingMessage message = new OutgoingMessage();
-
             foreach (NpgsqlDataReader reader in SelectDataRows(limit))
             {
-                message.MessageNumber = reader.IsDBNull("НомерСообщения") ? 0 : (long)reader.GetDecimal("НомерСообщения");
-                message.Uuid = reader.IsDBNull("Идентификатор") ? Guid.Empty : new Guid((byte[])reader["Идентификатор"]);
-                message.Headers = reader.IsDBNull("Заголовки") ? string.Empty : reader.GetString("Заголовки");
-                message.MessageType = reader.IsDBNull("ТипСообщения") ? string.Empty : reader.GetString("ТипСообщения");
-                message.MessageBody = reader.IsDBNull("ТелоСообщения") ? string.Empty : reader.GetString("ТелоСообщения");
-                message.Version = reader.IsDBNull("Версия") ? string.Empty : reader.GetString("Версия");
-                message.DateTimeStamp = reader.IsDBNull("ДатаВремя") ? DateTime.MinValue : reader.GetDateTime("ДатаВремя").AddYears(-_YearOffset);
+                _message.GetMessageData(in reader, in _message);
 
-                yield return message;
+                yield return _message;
             }
         }
         public void TxBegin()
@@ -112,6 +135,8 @@ namespace DaJet.Data.Messaging
 
             _connection?.Dispose();
             _connection = null;
+
+            _message = null;
         }
     }
 }

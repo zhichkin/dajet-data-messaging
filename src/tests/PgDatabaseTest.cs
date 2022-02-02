@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace DaJet.Data.Messaging.Test
 {
@@ -12,7 +13,8 @@ namespace DaJet.Data.Messaging.Test
         private readonly InfoBase _infoBase;
         private readonly ApplicationObject _incomingQueue;
         private readonly ApplicationObject _outgoingQueue;
-        private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
+        //private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
+        private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=test_node_2;Username=postgres;Password=postgres;";
 
         private readonly DbInterfaceValidator _validator = new DbInterfaceValidator();
         private readonly QueryBuilder _builder = new QueryBuilder(DatabaseProvider.PostgreSQL);
@@ -29,8 +31,8 @@ namespace DaJet.Data.Messaging.Test
                 return;
             }
             _infoBase = infoBase;
-            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередь");
-            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередь");
+            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьRabbitMQ");
+            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьRabbitMQ");
         }
 
         [TestMethod] public void Validate_DbInterface()
@@ -49,7 +51,11 @@ namespace DaJet.Data.Messaging.Test
         }
         [TestMethod] public void Script_OutgoingSelect()
         {
-            Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in _outgoingQueue)}");
+            for (int version = 1; version < 4; version++)
+            {
+                Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in _outgoingQueue, IOutgoingMessage.CreateMessage(version))}");
+                Console.WriteLine();
+            }
         }
 
         [TestMethod] public void Configure_IncomingQueue()
@@ -128,15 +134,17 @@ namespace DaJet.Data.Messaging.Test
             {
                 do
                 {
-                    foreach (OutgoingMessage message in consumer.Select())
-                    {
-                        total++;
-                    }
+                    //foreach (IOutgoingMessage message in consumer.Select())
+                    //{
+                    //    total++;
+                    //    ShowMessageData(in message);
+                    //}
 
                     consumer.TxBegin();
-                    foreach (OutgoingMessage message in consumer.Select())
+                    foreach (IOutgoingMessage message in consumer.Select())
                     {
                         total++;
+                        ShowMessageData(in message);
                     }
                     consumer.TxCommit();
 
@@ -145,6 +153,15 @@ namespace DaJet.Data.Messaging.Test
                 while (consumer.RecordsAffected > 0);
             }
             Console.WriteLine($"Total = {total}");
+        }
+        private void ShowMessageData(in IOutgoingMessage message)
+        {
+            Type type = message.GetType();
+
+            foreach (PropertyInfo property in type.GetProperties())
+            {
+                Console.WriteLine($"{property.Name} = {property.GetValue(message)}");
+            }
         }
 
         [TestMethod] public void Settings_Publication()

@@ -1,6 +1,8 @@
-﻿using DaJet.Metadata;
+﻿using DaJet.Data.Messaging;
+using DaJet.Metadata;
 using DaJet.Metadata.Model;
 using System.Collections.Generic;
+using System.Text;
 
 namespace DaJet.Data
 {
@@ -123,33 +125,11 @@ namespace DaJet.Data
 
         #region "OUTGOING QUEUE SELECT SCRIPTS"
 
-        private const string MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
-            "WITH cte AS (SELECT TOP (@MessageCount) " +
-            "{НомерСообщения} AS [НомерСообщения], {Идентификатор} AS [Идентификатор], {Заголовки} AS [Заголовки], " +
-            "{ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], {Версия} AS [Версия], {ДатаВремя} AS [ДатаВремя] " +
-            "FROM {TABLE_NAME} WITH (ROWLOCK, READPAST) ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC) " +
-            "DELETE cte OUTPUT deleted.[НомерСообщения], deleted.[Идентификатор], deleted.[Заголовки], " +
-            "deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[Версия], deleted.[ДатаВремя];";
-
-        private const string PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
-            "WITH cte AS (SELECT {НомерСообщения}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC LIMIT @MessageCount) " +
-            "DELETE FROM {TABLE_NAME} t USING cte WHERE t.{НомерСообщения} = cte.{НомерСообщения} AND t.{Идентификатор} = cte.{Идентификатор} " +
-            "RETURNING t.{НомерСообщения} AS \"НомерСообщения\", t.{Идентификатор} AS \"Идентификатор\", CAST(t.{Заголовки} AS text) AS \"Заголовки\", " +
-            "CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", " +
-            "CAST(t.{Версия} AS varchar) AS \"Версия\", t.{ДатаВремя} AS \"ДатаВремя\";";
-
-        public string BuildOutgoingQueueSelectScript(in ApplicationObject queue)
+        public string BuildOutgoingQueueSelectScript(in ApplicationObject queue, in IOutgoingMessage message)
         {
             List<string> templates;
 
-            if (_provider == DatabaseProvider.SQLServer)
-            {
-                templates = new List<string>() { MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE };
-            }
-            else
-            {
-                templates = new List<string>() { PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE };
-            }
+            templates = new List<string>() { message.GetSelectDataRowsScript(_provider) };
 
             ConfigureScripts(in templates, in queue, out List<string> scripts);
 

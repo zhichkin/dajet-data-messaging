@@ -1,5 +1,6 @@
 ﻿using DaJet.Metadata.Model;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 
@@ -7,6 +8,12 @@ namespace DaJet.Data.Messaging
 {
     public sealed class DbInterfaceValidator
     {
+        private List<Type> OutgoingMessageVersions { get; } = new List<Type>()
+        {
+            typeof(V1.OutgoingMessage),
+            typeof(V2.OutgoingMessage),
+            typeof(V3.OutgoingMessage)
+        };
         public int GetIncomingInterfaceVersion(in ApplicationObject queue)
         {
             if (VersionMatches(in queue, typeof(IncomingMessage)))
@@ -18,14 +25,24 @@ namespace DaJet.Data.Messaging
         }
         public int GetOutgoingInterfaceVersion(in ApplicationObject queue)
         {
-            if (VersionMatches(in queue, typeof(OutgoingMessage)))
-            {
-                return 1;
-            }
+            VersionAttribute version;
 
+            foreach (Type message in OutgoingMessageVersions)
+            {
+                if (VersionMatches(in queue, in message))
+                {
+                    version = message.GetCustomAttribute<VersionAttribute>();
+
+                    if (version != null)
+                    {
+                        return version.Version;
+                    }
+                }
+            }
+            
             return -1;
         }
-        private bool VersionMatches(in ApplicationObject queue, Type template)
+        private bool VersionMatches(in ApplicationObject queue, in Type template)
         {
             PropertyInfo[] properties = template.GetProperties();
 

@@ -9,6 +9,10 @@ namespace DaJet.Data.Messaging
 {
     public sealed class MsMessageConsumer : IMessageConsumer
     {
+        private const string DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR
+            = "Интерфейс данных исходящей очереди не поддерживается.";
+
+        private int _version;
         private SqlCommand _command;
         private SqlDataReader _reader;
         private SqlConnection _connection;
@@ -17,18 +21,41 @@ namespace DaJet.Data.Messaging
         private readonly int _YearOffset;
         private readonly string _connectionString;
         private string OUTGOING_QUEUE_SELECT_SCRIPT;
+        private IOutgoingMessage _message;
         public MsMessageConsumer(in string connectionString, in ApplicationObject queue, int yearOffset = 0)
         {
             _YearOffset = yearOffset;
             _connectionString = connectionString;
-            Initialize(in queue);
+            InitializeVersion(in queue);
+            BuildSelectScript(in queue);
+            InitializeDataAccessObjects();
         }
-        private void Initialize(in ApplicationObject queue)
+        private void InitializeVersion(in ApplicationObject queue)
         {
+            DbInterfaceValidator validator = new DbInterfaceValidator();
+
+            _version = validator.GetOutgoingInterfaceVersion(in queue);
+
+            if (_version < 1)
+            {
+                throw new Exception(DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR);
+            }
+        }
+        private void BuildSelectScript(in ApplicationObject queue)
+        {
+            _message = IOutgoingMessage.CreateMessage(_version);
+
+            if (_message == null)
+            {
+                throw new Exception(DATABASE_INTERFACE_IS_NOT_SUPPORTED_ERROR);
+            }
+
             OUTGOING_QUEUE_SELECT_SCRIPT =
                 new QueryBuilder(DatabaseProvider.SQLServer)
-                .BuildOutgoingQueueSelectScript(in queue);
-
+                .BuildOutgoingQueueSelectScript(in queue, in _message);
+        }
+        private void InitializeDataAccessObjects()
+        {
             try
             {
                 _connection = new SqlConnection(_connectionString);
@@ -47,8 +74,10 @@ namespace DaJet.Data.Messaging
                 throw;
             }
         }
+        
         private void ConfigureCommandParameters()
         {
+            _command.Parameters.Add("YearOffset", SqlDbType.Int);
             _command.Parameters.Add("MessageCount", SqlDbType.Int);
         }
         public int RecordsAffected { get { return _recordsAffected; } }
@@ -57,6 +86,7 @@ namespace DaJet.Data.Messaging
             _recordsAffected = 0;
 
             _command.Parameters["MessageCount"].Value = limit;
+            _command.Parameters["YearOffset"].Value = _YearOffset;
 
             using (_reader = _command.ExecuteReader())
             {
@@ -69,21 +99,13 @@ namespace DaJet.Data.Messaging
                 _recordsAffected = _reader.RecordsAffected;
             }
         }
-        public IEnumerable<OutgoingMessage> Select(int limit = 1000)
+        public IEnumerable<IOutgoingMessage> Select(int limit = 1000)
         {
-            OutgoingMessage message = new OutgoingMessage();
-
             foreach (SqlDataReader reader in SelectDataRows(limit))
             {
-                message.MessageNumber = reader.IsDBNull("НомерСообщения") ? 0 : (long)reader.GetDecimal("НомерСообщения");
-                message.Uuid = reader.IsDBNull("Идентификатор") ? Guid.Empty : new Guid((byte[])reader["Идентификатор"]);
-                message.Headers = reader.IsDBNull("Заголовки") ? string.Empty : reader.GetString("Заголовки");
-                message.MessageType = reader.IsDBNull("ТипСообщения") ? string.Empty : reader.GetString("ТипСообщения");
-                message.MessageBody = reader.IsDBNull("ТелоСообщения") ? string.Empty : reader.GetString("ТелоСообщения");
-                message.Version = reader.IsDBNull("Версия") ? string.Empty : reader.GetString("Версия");
-                message.DateTimeStamp = reader.IsDBNull("ДатаВремя") ? DateTime.MinValue : reader.GetDateTime("ДатаВремя").AddYears(-_YearOffset);
+                _message.GetMessageData(in reader, in _message);
 
-                yield return message;
+                yield return _message;
             }
         }
         public void TxBegin()
@@ -113,6 +135,8 @@ namespace DaJet.Data.Messaging
 
             _connection?.Dispose();
             _connection = null;
+
+            _message = null;
         }
     }
 }
