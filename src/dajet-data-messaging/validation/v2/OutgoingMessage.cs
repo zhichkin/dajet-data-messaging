@@ -12,6 +12,8 @@ namespace DaJet.Data.Messaging.V2
     /// </summary>
     [Table("РегистрСведений.ИсходящаяОчередь")] [Version(2)] public sealed class OutgoingMessage : OutgoingMessageDataMapper
     {
+        #region "INSTANCE PROPERTIES"
+
         /// <summary>
         /// "МоментВремени" Порядковый номер сообщения (может генерироваться средствами СУБД) - numeric(19,0)
         /// </summary>
@@ -31,13 +33,9 @@ namespace DaJet.Data.Messaging.V2
         /// </summary>
         [Column("Получатели")] public string Recipients { get; set; } = string.Empty;
         /// <summary>
-        /// "ТипСообщения" Тип сообщения, например, "Справочник.Номенклатура" - nvarchar(1024)
-        /// </summary>
-        [Column("ТипСообщения")] public string MessageType { get; set; } = string.Empty;
-        /// <summary>
         /// "ТелоСообщения" Тело сообщения в формате JSON или XML - nvarchar(max)
         /// </summary>
-        [Column("ТелоСообщения")] public string MessageBody { get; set; } = string.Empty;
+        //[Column("ТелоСообщения")] public string MessageBody { get; set; } = string.Empty;
         /// <summary>
         /// "ДатаВремя" Время создания сообщения - datetime2
         /// </summary>
@@ -47,7 +45,9 @@ namespace DaJet.Data.Messaging.V2
         /// </summary>
         [Column("ТипОперации")] public string OperationType { get; set; } = string.Empty;
 
-        #region "OutgoingMessageDataMapper interface implementation"
+        #endregion
+
+        #region "DATA MAPPING"
 
         private const string MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
             "WITH cte AS (SELECT TOP (@MessageCount) " +

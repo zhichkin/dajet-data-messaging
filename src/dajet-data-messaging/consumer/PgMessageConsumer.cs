@@ -88,11 +88,13 @@ namespace DaJet.Data.Messaging
             {
                 while (_reader.Read())
                 {
+                    _recordsAffected++;
+
                     yield return _reader;
                 }
                 _reader.Close();
 
-                _recordsAffected = _reader.RecordsAffected;
+                //_recordsAffected = _reader.RecordsAffected;
             }
         }
         public IEnumerable<OutgoingMessageDataMapper> Select(int limit = 1000)

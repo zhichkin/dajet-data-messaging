@@ -1,0 +1,22 @@
+WITH cte AS
+(
+	SELECT _fld100, _fld101 FROM _inforg99 ORDER BY _fld100 ASC, _fld101 ASC LIMIT 100
+),
+del AS
+(
+	DELETE FROM _inforg99 t USING cte
+	WHERE t._fld100 = cte._fld100 AND t._fld101 = cte._fld101
+	RETURNING
+	t._fld100 AS "МоментВремени", t._fld101 AS "Идентификатор", t._fld106 AS "ДатаВремя",
+	CAST(t._fld102 AS varchar) AS "Отправитель", CAST(t._fld103 AS varchar) AS "Получатели",
+	CAST(t._fld107 AS varchar) AS "ТипОперации", CAST(t._fld104 AS varchar) AS "ТипСообщения",
+	CAST(t._fld105 AS text) AS "ТелоСообщения", t._fld108 AS "ИдентификаторОбъекта"
+),
+ver AS
+(
+	SELECT МоментВремени, Идентификатор, ТипОперации, ТипСообщения, ТелоСообщения,
+	MAX(МоментВремени) OVER(PARTITION BY ИдентификаторОбъекта) AS "Версия"
+	FROM del
+)
+SELECT * FROM ver WHERE ТелоСообщения <> '' OR МоментВремени = Версия
+ORDER BY МоментВремени ASC, Идентификатор ASC;

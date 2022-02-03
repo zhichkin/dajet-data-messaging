@@ -12,6 +12,8 @@ namespace DaJet.Data.Messaging.V3
     /// </summary>
     [Table("РегистрСведений.ИсходящаяОчередь")] [Version(3)] public sealed class OutgoingMessage : OutgoingMessageDataMapper
     {
+        #region "INSTANCE PROPERTIES"
+
         /// <summary>
         /// "МоментВремени" Порядковый номер сообщения (может генерироваться средствами СУБД) - numeric(19,0)
         /// </summary>
@@ -31,14 +33,6 @@ namespace DaJet.Data.Messaging.V3
         /// </summary>
         [Column("Получатели")] public string Recipients { get; set; } = string.Empty;
         /// <summary>
-        /// "ТипСообщения" Тип сообщения, например, "Справочник.Номенклатура" - nvarchar(1024)
-        /// </summary>
-        [Column("ТипСообщения")] public string MessageType { get; set; } = string.Empty;
-        /// <summary>
-        /// "ТелоСообщения" Тело сообщения в формате JSON или XML - nvarchar(max)
-        /// </summary>
-        [Column("ТелоСообщения")] public string MessageBody { get; set; } = string.Empty;
-        /// <summary>
         /// "ДатаВремя" Время создания сообщения - datetime2
         /// </summary>
         [Column("ДатаВремя")] public DateTime DateTimeStamp { get; set; } = DateTime.Now;
@@ -51,35 +45,55 @@ namespace DaJet.Data.Messaging.V3
         /// </summary>
         [Column("ИдентификаторОбъекта")] public Guid Reference { get; set; } = Guid.Empty;
 
-        private const string MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
+        #endregion
+
+        #region "DATA MAPPING"
+
+        private const string MS_OUTGOING_QUEUE_COMPACTION_SELECT_SCRIPT_TEMPLATE =
+            "DECLARE @messages TABLE " +
+            "([МоментВремени] numeric(19,0), [Идентификатор] binary(16), [ДатаВремя] datetime2, " +
+            "[Отправитель] nvarchar(36), [Получатели] nvarchar(max), [ТипОперации] nvarchar(6), " +
+            "[ТипСообщения] nvarchar(1024), [ТелоСообщения] nvarchar(max), [ИдентификаторОбъекта] binary(16)); " +
             "WITH cte AS (SELECT TOP (@MessageCount) " +
-            "{МоментВремени} AS [МоментВремени], {Идентификатор} AS [Идентификатор], {ДатаВремя} AS [ДатаВремя], " +
-            "{Отправитель} AS [Отправитель], " +
+            "{МоментВремени} AS [МоментВремени], {Идентификатор} AS [Идентификатор], {ДатаВремя} AS [ДатаВремя], {Отправитель} AS [Отправитель], " +
             "{Получатели} AS [Получатели], {ТипОперации} AS [ТипОперации], {ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], " +
             "{ИдентификаторОбъекта} AS [ИдентификаторОбъекта] " +
             "FROM {TABLE_NAME} WITH (ROWLOCK, READPAST) ORDER BY {МоментВремени} ASC, {Идентификатор} ASC) " +
             "DELETE cte OUTPUT deleted.[МоментВремени], deleted.[Идентификатор], deleted.[ДатаВремя], deleted.[Отправитель], " +
-            "deleted.[Получатели], deleted.[ТипОперации], deleted.[ТипСообщения], deleted.[ТелоСообщения], " +
-            "deleted.[ИдентификаторОбъекта];";
+            "deleted.[Получатели], deleted.[ТипОперации], deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[ИдентификаторОбъекта] " +
+            "INTO @messages; " +
+            "SELECT [МоментВремени], [Идентификатор], [ДатаВремя], [Отправитель], [Получатели], " +
+            "[ТипОперации], [ТипСообщения], [ТелоСообщения], [ИдентификаторОбъекта] " +
+            "FROM (SELECT [МоментВремени], [Идентификатор], [ДатаВремя], [Отправитель], [Получатели], " +
+            "[ТипОперации], [ТипСообщения], [ТелоСообщения], [ИдентификаторОбъекта],  " +
+            "MAX([МоментВремени]) OVER(PARTITION BY [ИдентификаторОбъекта]) AS[Версия] FROM @messages) AS T " +
+            "WHERE [ТелоСообщения] <> '' OR [МоментВремени] = [Версия] ORDER BY [МоментВремени] ASC, [Идентификатор] ASC;";
 
-        private const string PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
-            "WITH cte AS (SELECT {МоментВремени}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {МоментВремени} ASC, {Идентификатор} ASC LIMIT @MessageCount) " +
-            "DELETE FROM {TABLE_NAME} t USING cte WHERE t.{МоментВремени} = cte.{МоментВремени} AND t.{Идентификатор} = cte.{Идентификатор} " +
-            "RETURNING t.{МоментВремени} AS \"МоментВремени\", t.{Идентификатор} AS \"Идентификатор\", " +
-            "t.{ДатаВремя} AS \"ДатаВремя\", CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", " +
-            "CAST(t.{Получатели} AS varchar) AS \"Получатели\", CAST(t.{ТипОперации} AS varchar) AS \"ТипОперации\", " +
-            "CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", " +
-            "t.{ИдентификаторОбъекта} AS \"ИдентификаторОбъекта\";";
+        private const string PG_OUTGOING_QUEUE_COMPACTION_SELECT_SCRIPT_TEMPLATE =
+            "WITH " +
+            "cte AS (SELECT {МоментВремени}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {МоментВремени} ASC, {Идентификатор} ASC LIMIT @MessageCount), " +
+            "del AS (DELETE FROM {TABLE_NAME} t USING cte WHERE t.{МоментВремени} = cte.{МоментВремени} AND t.{Идентификатор} = cte.{Идентификатор} " +
+            "RETURNING t.{МоментВремени} AS \"МоментВремени\", t.{Идентификатор} AS \"Идентификатор\", t.{ДатаВремя} AS \"ДатаВремя\", " +
+            "CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", CAST(t.{Получатели} AS varchar) AS \"Получатели\", " +
+            "CAST(t.{ТипОперации} AS varchar) AS \"ТипОперации\", CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
+            "CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", t.{ИдентификаторОбъекта} AS \"ИдентификаторОбъекта\"), " +
+            "ver AS (SELECT МоментВремени, Идентификатор, ДатаВремя, Отправитель, Получатели, ТипОперации, ТипСообщения, ТелоСообщения, ИдентификаторОбъекта, " +
+            "MAX(МоментВремени) OVER(PARTITION BY ИдентификаторОбъекта) AS \"Версия\" FROM del) " +
+            "SELECT МоментВремени, Идентификатор, ДатаВремя, Отправитель, Получатели, ТипОперации, ТипСообщения, ТелоСообщения, ИдентификаторОбъекта FROM ver " +
+            "WHERE ТелоСообщения <> '' OR МоментВремени = Версия " +
+            "ORDER BY МоментВремени ASC, Идентификатор ASC;";
 
         public override string GetSelectDataRowsScript(DatabaseProvider provider)
         {
             if (provider == DatabaseProvider.SQLServer)
             {
-                return MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE;
+                //return MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE;
+                return MS_OUTGOING_QUEUE_COMPACTION_SELECT_SCRIPT_TEMPLATE;
             }
             else
             {
-                return PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE;
+                //return PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE;
+                return PG_OUTGOING_QUEUE_COMPACTION_SELECT_SCRIPT_TEMPLATE;
             }
         }
         public override void GetMessageData<T>(in T source, in OutgoingMessageDataMapper target)
@@ -99,5 +113,7 @@ namespace DaJet.Data.Messaging.V3
             message.DateTimeStamp = source.IsDBNull("ДатаВремя") ? DateTime.MinValue : source.GetDateTime("ДатаВремя");
             message.Reference = source.IsDBNull("ИдентификаторОбъекта") ? Guid.Empty : new Guid((byte[])source["ИдентификаторОбъекта"]);
         }
+
+        #endregion
     }
 }

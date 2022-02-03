@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 
 namespace DaJet.Data.Messaging.Test
 {
@@ -102,6 +103,20 @@ namespace DaJet.Data.Messaging.Test
             foreach (PropertyInfo property in type.GetProperties())
             {
                 Console.WriteLine($"{property.Name} = {property.GetValue(message)}");
+
+                if (property.Name == "MessageBody")
+                {
+                    ReadOnlyMemory<byte> body = message.GetMessageBody();
+
+                    if (body.IsEmpty)
+                    {
+                        Console.WriteLine($"{property.Name} (UTF-8): message body is empty.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{property.Name} (UTF-8): {Encoding.UTF8.GetString(body.Span)}");
+                    }
+                }
             }
         }
 
@@ -140,6 +155,20 @@ namespace DaJet.Data.Messaging.Test
             {
                 Console.WriteLine("Outgoing queue configured successfully.");
             }
+        }
+
+        [TestMethod] public void Script_OutgoingSelect()
+        {
+            DbInterfaceValidator validator = new DbInterfaceValidator();
+            int version = validator.GetOutgoingInterfaceVersion(in _outgoingQueue);
+
+            QueryBuilder builder = new QueryBuilder(DatabaseProvider.SQLServer);
+
+            OutgoingMessageDataMapper mapper = OutgoingMessageDataMapper.Create(version);
+
+            string script = builder.BuildOutgoingQueueSelectScript(in _outgoingQueue, in mapper);
+
+            Console.WriteLine(script);
         }
     }
 }

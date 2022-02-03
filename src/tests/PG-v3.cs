@@ -141,5 +141,19 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine("Outgoing queue configured successfully.");
             }
         }
+
+        [TestMethod] public void Script_OutgoingSelect()
+        {
+            DbInterfaceValidator validator = new DbInterfaceValidator();
+            int version = validator.GetOutgoingInterfaceVersion(in _outgoingQueue);
+
+            QueryBuilder builder = new QueryBuilder(DatabaseProvider.PostgreSQL);
+
+            OutgoingMessageDataMapper mapper = OutgoingMessageDataMapper.Create(version);
+
+            string script = builder.BuildOutgoingQueueSelectScript(in _outgoingQueue, in mapper);
+
+            Console.WriteLine(script);
+        }
     }
 }
