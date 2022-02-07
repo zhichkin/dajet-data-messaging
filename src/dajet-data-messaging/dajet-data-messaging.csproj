@@ -13,10 +13,8 @@
 Microsoft SQL Server and PostgreSQL are supported.</Description>
     <PackageProjectUrl>https://github.com/zhichkin/dajet-data-messaging</PackageProjectUrl>
     <RepositoryUrl>https://github.com/zhichkin/dajet-data-messaging</RepositoryUrl>
-    <PackageReleaseNotes>1. Added GetMessageBody method to OutgoingMessageDataMapper class to get message body as ReadOnlyMemory&lt;byte&gt; encoded as UTF-8.
-2. Moved property MessageType from OutgoingMessage to its parent OutgoingMessageDataMapper class.
-3. Moved property MessageBody from OutgoingMessage to its parent OutgoingMessageDataMapper class.</PackageReleaseNotes>
-    <Version>3.0.1</Version>
+    <PackageReleaseNotes>Minor changes</PackageReleaseNotes>
+    <Version>3.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
