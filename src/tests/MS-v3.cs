@@ -170,5 +170,17 @@ namespace DaJet.Data.Messaging.Test
 
             Console.WriteLine(script);
         }
+
+        [TestMethod] public void Test_MessageBody_Encoding()
+        {
+            V3.OutgoingMessage message = new V3.OutgoingMessage()
+            {
+                MessageBody = "{\"#type\":\"jcfg:CatalogObject.ТестовыйСправочник\",\"#value\":{\"Ref\":\"898b75f2-7fc3-11ec-9cc6-408d5c93cc8e\",\"DeletionMark\":false,\"Code\":\"000000001\",\"Description\":\"тест\"}}"
+            };
+
+            ReadOnlyMemory<byte> memory = message.GetMessageBody();
+
+            Console.WriteLine(Encoding.UTF8.GetString(memory.Span));
+        }
     }
 }

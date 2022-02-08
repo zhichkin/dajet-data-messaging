@@ -51,6 +51,8 @@ namespace DaJet.Data.Messaging
 
             ReadOnlyMemory<byte> messageBody = new ReadOnlyMemory<byte>(buffer, 0, encoded);
 
+            // FIXME:
+            // ReadOnlyMemory references buffer, which will be disposed after Return method is called !!!
             ArrayPool<byte>.Shared.Return(buffer);
 
             return messageBody;
