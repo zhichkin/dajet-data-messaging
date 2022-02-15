@@ -15,6 +15,8 @@ namespace DaJet.Data.Messaging.V1
     /// </summary>
     [Table("РегистрСведений.ВходящаяОчередь")] [Version(1)] public sealed class IncomingMessage : IncomingMessageDataMapper
     {
+        #region "DATA CONTRACT - INSTANCE PROPERTIES"
+
         /// <summary>
         /// "НомерСообщения" Порядковый номер сообщения (может генерироваться средствами СУБД) - numeric(19,0)
         /// </summary>
@@ -38,10 +40,6 @@ namespace DaJet.Data.Messaging.V1
         /// </summary>
         [Column("ТелоСообщения")] public string MessageBody { get; set; } = string.Empty;
         /// <summary>
-        /// "Версия" Версия данных тела сообщения (uuid + timestamp in BASE64 format) - nvarchar(48)
-        /// </summary>
-        [Column("Версия")] public string Version { get; set; } = string.Empty;
-        /// <summary>
         /// "ДатаВремя" Время создания сообщения - datetime2
         /// </summary>
         [Column("ДатаВремя")] public DateTime DateTimeStamp { get; set; } = DateTime.MinValue;
@@ -54,18 +52,22 @@ namespace DaJet.Data.Messaging.V1
         /// </summary>
         [Column("КоличествоОшибок")] public int ErrorCount { get; set; } = 0;
 
+        #endregion
+
+        #region "DATA MAPPING - INSERT COMMAND"
+
         private const string MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT {TABLE_NAME} " +
-            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {Версия}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
             "SELECT NEXT VALUE FOR {SEQUENCE_NAME}, " +
-            "@Заголовки, @Отправитель, @ТипСообщения, @ТелоСообщения, @Версия, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
+            "@Заголовки, @Отправитель, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
 
         private const string PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT INTO {TABLE_NAME} " +
-            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {Версия}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
             "SELECT CAST(nextval('{SEQUENCE_NAME}') AS numeric(19,0)), " +
             "CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
-            "CAST(@ТелоСообщения AS mvarchar), CAST(@Версия AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
+            "CAST(@ТелоСообщения AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
 
         public override string GetInsertScript(DatabaseProvider provider)
         {
@@ -88,7 +90,6 @@ namespace DaJet.Data.Messaging.V1
                 ms.Parameters.Add("Отправитель", SqlDbType.NVarChar);
                 ms.Parameters.Add("ТипСообщения", SqlDbType.NVarChar);
                 ms.Parameters.Add("ТелоСообщения", SqlDbType.NVarChar);
-                ms.Parameters.Add("Версия", SqlDbType.NVarChar);
                 ms.Parameters.Add("ДатаВремя", SqlDbType.DateTime2);
                 ms.Parameters.Add("ОписаниеОшибки", SqlDbType.NVarChar);
                 ms.Parameters.Add("КоличествоОшибок", SqlDbType.Int);
@@ -99,7 +100,6 @@ namespace DaJet.Data.Messaging.V1
                 pg.Parameters.Add("Отправитель", NpgsqlDbType.Varchar);
                 pg.Parameters.Add("ТипСообщения", NpgsqlDbType.Varchar);
                 pg.Parameters.Add("ТелоСообщения", NpgsqlDbType.Varchar);
-                pg.Parameters.Add("Версия", NpgsqlDbType.Varchar);
                 pg.Parameters.Add("ДатаВремя", NpgsqlDbType.Timestamp);
                 pg.Parameters.Add("ОписаниеОшибки", NpgsqlDbType.Varchar);
                 pg.Parameters.Add("КоличествоОшибок", NpgsqlDbType.Integer);
@@ -116,10 +116,11 @@ namespace DaJet.Data.Messaging.V1
             target.Parameters["Отправитель"].Value = message.Sender;
             target.Parameters["ТипСообщения"].Value = message.MessageType;
             target.Parameters["ТелоСообщения"].Value = message.MessageBody;
-            target.Parameters["Версия"].Value = message.Version;
             target.Parameters["ДатаВремя"].Value = message.DateTimeStamp;
             target.Parameters["ОписаниеОшибки"].Value = message.ErrorDescription;
             target.Parameters["КоличествоОшибок"].Value = message.ErrorCount;
         }
+
+        #endregion
     }
 }

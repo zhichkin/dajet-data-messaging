@@ -13,8 +13,8 @@
 Microsoft SQL Server and PostgreSQL are supported.</Description>
     <PackageProjectUrl>https://github.com/zhichkin/dajet-data-messaging</PackageProjectUrl>
     <RepositoryUrl>https://github.com/zhichkin/dajet-data-messaging</RepositoryUrl>
-    <PackageReleaseNotes>Minor changes</PackageReleaseNotes>
-    <Version>3.0.2</Version>
+    <PackageReleaseNotes>V1 data contract update</PackageReleaseNotes>
+    <Version>3.0.3</Version>
   </PropertyGroup>
 
   <ItemGroup>

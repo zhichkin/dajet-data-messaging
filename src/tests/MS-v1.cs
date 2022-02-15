@@ -2,6 +2,7 @@
 using DaJet.Metadata.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace DaJet.Data.Messaging.Test
@@ -41,6 +42,48 @@ namespace DaJet.Data.Messaging.Test
             Assert.AreEqual(1, version);
             Console.WriteLine($"Outgoing queue version = {version}");
         }
+        [TestMethod] public void Configure_DbInterface()
+        {
+            DbInterfaceValidator validator = new DbInterfaceValidator();
+            
+            int version = validator.GetIncomingInterfaceVersion(in _incomingQueue);
+            Console.WriteLine($"Incoming queue version = {version}");
+
+            DbQueueConfigurator configurator = new DbQueueConfigurator(version, DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
+            configurator.ConfigureIncomingMessageQueue(in _incomingQueue, out List<string> errors);
+
+            if (errors.Count > 0)
+            {
+                foreach (string error in errors)
+                {
+                    Console.WriteLine(error);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Incoming queue configured successfully.");
+            }
+
+            Console.WriteLine();
+
+            version = validator.GetOutgoingInterfaceVersion(in _outgoingQueue);
+            Console.WriteLine($"Outgoing queue version = {version}");
+
+            configurator = new DbQueueConfigurator(version, DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
+            configurator.ConfigureOutgoingMessageQueue(in _outgoingQueue, out errors);
+
+            if (errors.Count > 0)
+            {
+                foreach (string error in errors)
+                {
+                    Console.WriteLine(error);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Outgoing queue configured successfully.");
+            }
+        }
         [TestMethod] public void MessageProducer_Insert()
         {
             int total = 0;
@@ -76,6 +119,7 @@ namespace DaJet.Data.Messaging.Test
                 {
                     foreach (OutgoingMessageDataMapper message in consumer.Select())
                     {
+                        Console.WriteLine();
                         ShowMessageData(in message);
                     }
 
@@ -91,6 +135,7 @@ namespace DaJet.Data.Messaging.Test
                 while (consumer.RecordsAffected > 0);
             }
 
+            Console.WriteLine();
             Console.WriteLine($"Total = {total}");
         }
         private void ShowMessageData(in OutgoingMessageDataMapper message)

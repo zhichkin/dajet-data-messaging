@@ -50,10 +50,10 @@ namespace DaJet.Data.Messaging
         {
             PropertyInfo[] properties = template.GetProperties();
 
-            if (properties.Length != queue.Properties.Count)
-            {
-                return false;
-            }
+            //if (properties.Length != queue.Properties.Count)
+            //{
+            //    return false;
+            //}
 
             foreach (PropertyInfo property in properties)
             {
