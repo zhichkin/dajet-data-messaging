@@ -4,13 +4,13 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 
-namespace DaJet.Data.Messaging.V2
+namespace DaJet.Data.Messaging.V10
 {
     /// <summary>
     /// Табличный интерфейс исходящей очереди сообщений
     /// (непериодический независимый регистр сведений)
     /// </summary>
-    [Table("РегистрСведений.ИсходящаяОчередь")] [Version(2)] public sealed class OutgoingMessage : OutgoingMessageDataMapper
+    [Table("РегистрСведений.ИсходящаяОчередь")] [Version(10)] public sealed class OutgoingMessage : OutgoingMessageDataMapper
     {
         #region "INSTANCE PROPERTIES"
 
@@ -23,7 +23,7 @@ namespace DaJet.Data.Messaging.V2
         /// <summary>
         /// "Идентификатор" Уникальный идентификатор сообщения - binary(16)
         /// </summary>
-        [Column("Идентификатор")] public Guid Uuid { get; set; }
+        [Column("Идентификатор")] [Key] public Guid Uuid { get; set; }
         /// <summary>
         /// "Отправитель" Код или UUID отправителя сообщения - nvarchar(36)
         /// </summary>

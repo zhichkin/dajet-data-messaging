@@ -1,7 +1,10 @@
 ﻿using DaJet.Data.Messaging;
 using DaJet.Metadata;
 using DaJet.Metadata.Model;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Text;
 
 namespace DaJet.Data
 {
@@ -235,5 +238,40 @@ namespace DaJet.Data
         }
 
         #endregion
+
+        public string BuildSelectMessagesScript(in ApplicationObject queue)
+        {
+            StringBuilder script = new StringBuilder();
+            StringBuilder select = new StringBuilder();
+            StringBuilder output = new StringBuilder();
+            StringBuilder orderby = new StringBuilder();
+
+            script.Append("WITH cte AS (SELECT TOP (@MessageCount) ");
+
+            MetadataProperty property;
+            for (int i = 0; i < queue.Properties.Count; i++)
+            {
+                property = queue.Properties[i];
+
+                if (select.Length > 0) { select.Append(", "); }
+                select.Append(property.Fields[0].Name).Append(" AS [").Append(property.Name).Append("]");
+
+                if (output.Length > 0) { output.Append(", "); }
+                output.Append("deleted.[").Append(property.Name).Append("]");
+
+                if (property.Purpose == PropertyPurpose.Dimension)
+                {
+                    if (orderby.Length > 0) { orderby.Append(", "); }
+                    orderby.Append(property.Fields[0].Name).Append(" ASC");
+                }
+            }
+
+            script.Append(select.ToString());
+            script.Append(" FROM ").Append(queue.TableName).Append(" WITH (ROWLOCK, READPAST) ORDER BY ");
+            script.Append(orderby.ToString()).Append(") DELETE cte OUTPUT ");
+            script.Append(output.ToString()).Append(";");
+
+            return script.ToString();
+        }
     }
 }

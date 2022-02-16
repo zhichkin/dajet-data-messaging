@@ -35,11 +35,43 @@ namespace DaJet.Data.Messaging.Test
             _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьRabbitMQ");
         }
 
-        [TestMethod] public void Validate_DbInterface()
+        [TestMethod] public void Validate_DbInterface_Incoming()
         {
-            Console.WriteLine($"Incoming queue version = {_validator.GetIncomingInterfaceVersion(in _incomingQueue)}");
-            Console.WriteLine($"Outgoing queue version = {_validator.GetOutgoingInterfaceVersion(in _outgoingQueue)}");
+            ApplicationObject queue;
+
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
+            {
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
+
+                if (queue != null)
+                {
+                    Assert.AreEqual(version, _validator.GetIncomingInterfaceVersion(queue));
+
+                    Console.WriteLine($"Incoming queue data contract version {version} is valid.");
+                }
+            }
         }
+        [TestMethod] public void Validate_DbInterface_Outgoing()
+        {
+            ApplicationObject queue;
+
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
+            {
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+
+                if (queue != null)
+                {
+                    Assert.AreEqual(version, _validator.GetOutgoingInterfaceVersion(queue));
+
+                    Console.WriteLine($"Outgoing queue data contract version {version} is valid.");
+                }
+            }
+        }
+
         [TestMethod] public void Script_IncomingInsert()
         {
             for (int version = 1; version < 3; version++)

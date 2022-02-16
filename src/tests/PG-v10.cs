@@ -7,15 +7,15 @@ using System.Reflection;
 
 namespace DaJet.Data.Messaging.Test
 {
-    [TestClass] public class PG_v3
+    [TestClass] public class PG_v10
     {
         private readonly InfoBase _infoBase;
         private readonly ApplicationObject _incomingQueue;
         private readonly ApplicationObject _outgoingQueue;
-        private const string INCOMING_QUEUE_NAME = "РегистрСведений.ВходящаяОчередь2";
-        private const string OUTGOING_QUEUE_NAME = "РегистрСведений.ИсходящаяОчередь2";
+        private const string INCOMING_QUEUE_NAME = "РегистрСведений.ВходящаяОчередь10";
+        private const string OUTGOING_QUEUE_NAME = "РегистрСведений.ИсходящаяОчередь10";
         private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
-        public PG_v3()
+        public PG_v10()
         {
             if (!new MetadataService()
                 .UseDatabaseProvider(DatabaseProvider.PostgreSQL)
@@ -35,18 +35,18 @@ namespace DaJet.Data.Messaging.Test
             DbInterfaceValidator validator = new DbInterfaceValidator();
 
             int version = validator.GetIncomingInterfaceVersion(in _incomingQueue);
-            Assert.AreEqual(2, version);
+            Assert.AreEqual(10, version);
             Console.WriteLine($"Incoming queue version = {version}");
 
             version = validator.GetOutgoingInterfaceVersion(in _outgoingQueue);
-            Assert.AreEqual(3, version);
+            Assert.AreEqual(10, version);
             Console.WriteLine($"Outgoing queue version = {version}");
         }
         [TestMethod] public void MessageProducer_Insert()
         {
             int total = 0;
 
-            V2.IncomingMessage message = IncomingMessageDataMapper.Create(2) as V2.IncomingMessage;
+            V10.IncomingMessage message = IncomingMessageDataMapper.Create(10) as V10.IncomingMessage;
             Assert.IsNotNull(message);
 
             message.Uuid = Guid.NewGuid();
@@ -107,7 +107,7 @@ namespace DaJet.Data.Messaging.Test
 
         [TestMethod] public void Configure_IncomingQueue()
         {
-            DbQueueConfigurator configurator = new DbQueueConfigurator(2, DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
+            DbQueueConfigurator configurator = new DbQueueConfigurator(10, DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
 
             configurator.ConfigureIncomingMessageQueue(in _incomingQueue, out List<string> errors);
 
@@ -125,7 +125,7 @@ namespace DaJet.Data.Messaging.Test
         }
         [TestMethod] public void Configure_OutgoingQueue()
         {
-            DbQueueConfigurator configurator = new DbQueueConfigurator(3, DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
+            DbQueueConfigurator configurator = new DbQueueConfigurator(10, DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
 
             configurator.ConfigureOutgoingMessageQueue(in _outgoingQueue, out List<string> errors);
 
@@ -140,20 +140,6 @@ namespace DaJet.Data.Messaging.Test
             {
                 Console.WriteLine("Outgoing queue configured successfully.");
             }
-        }
-
-        [TestMethod] public void Script_OutgoingSelect()
-        {
-            DbInterfaceValidator validator = new DbInterfaceValidator();
-            int version = validator.GetOutgoingInterfaceVersion(in _outgoingQueue);
-
-            QueryBuilder builder = new QueryBuilder(DatabaseProvider.PostgreSQL);
-
-            OutgoingMessageDataMapper mapper = OutgoingMessageDataMapper.Create(version);
-
-            string script = builder.BuildOutgoingQueueSelectScript(in _outgoingQueue, in mapper);
-
-            Console.WriteLine(script);
         }
     }
 }

@@ -30,15 +30,47 @@ namespace DaJet.Data.Messaging.Test
                 return;
             }
             _infoBase = infoBase;
-            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьRabbitMQ");
-            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьRabbitMQ");
+            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередь10");
+            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередь10");
         }
 
-        [TestMethod] public void Validate_DbInterface()
+        [TestMethod] public void Validate_DbInterface_Incoming()
         {
-            Console.WriteLine($"Incoming queue version = {_validator.GetIncomingInterfaceVersion(in _incomingQueue)}");
-            Console.WriteLine($"Outgoing queue version = {_validator.GetOutgoingInterfaceVersion(in _outgoingQueue)}");
+            ApplicationObject queue;
+
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
+            {
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
+
+                if (queue != null)
+                {
+                    Assert.AreEqual(version, _validator.GetIncomingInterfaceVersion(queue));
+
+                    Console.WriteLine($"Incoming queue data contract version {version} is valid.");
+                }
+            }
         }
+        [TestMethod] public void Validate_DbInterface_Outgoing()
+        {
+            ApplicationObject queue;
+            
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
+            {
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+
+                if (queue != null)
+                {
+                    Assert.AreEqual(version, _validator.GetOutgoingInterfaceVersion(queue));
+
+                    Console.WriteLine($"Outgoing queue data contract version {version} is valid.");
+                }
+            }
+        }
+
         [TestMethod] public void Script_IncomingInsert()
         {
             for (int version = 1; version < 3; version++)
@@ -49,11 +81,39 @@ namespace DaJet.Data.Messaging.Test
         }
         [TestMethod] public void Script_OutgoingSelect()
         {
-            for (int version = 1; version < 4; version++)
+            ApplicationObject queue;
+            OutgoingMessageDataMapper message;
+
+            for (int version = 10; version < 13; version++)
             {
-                Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in _outgoingQueue, OutgoingMessageDataMapper.Create(version))}");
+                Console.WriteLine($"Outgoing queue data contract version: {version}");
+
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+                message = OutgoingMessageDataMapper.Create(version);
+
+                if (queue != null && message != null)
+                {
+                    Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in queue, in message)}");
+                }
+
                 Console.WriteLine();
             }
+
+            //ApplicationObject queue;
+
+            //for (int version = 10; version < 13; version++)
+            //{
+            //    Console.WriteLine($"Outgoing queue data contract version: {version}");
+
+            //    queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+
+            //    if (queue != null)
+            //    {
+            //        Console.WriteLine(_builder.BuildSelectMessagesScript(in queue));
+            //    }
+
+            //    Console.WriteLine();
+            //}
         }
 
         [TestMethod] public void Configure_IncomingQueue()
@@ -212,7 +272,6 @@ namespace DaJet.Data.Messaging.Test
             }
             Console.WriteLine();
         }
-
         [TestMethod] public void SelectMainNode()
         {
             PublicationSettings settings = new PublicationSettings(DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
@@ -245,7 +304,6 @@ namespace DaJet.Data.Messaging.Test
             }
             Console.WriteLine();
         }
-
         [TestMethod] public void SelectMessagingSettings()
         {
             new PublicationSettings(DatabaseProvider.SQLServer, MS_CONNECTION_STRING)

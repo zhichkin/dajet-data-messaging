@@ -7,14 +7,16 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 
-namespace DaJet.Data.Messaging.V2
+namespace DaJet.Data.Messaging.V12
 {
     /// <summary>
     /// Табличный интерфейс входящей очереди сообщений
     /// (непериодический независимый регистр сведений)
     /// </summary>
-    [Table("РегистрСведений.ВходящаяОчередь")] [Version(2)] public sealed class IncomingMessage : IncomingMessageDataMapper
+    [Table("РегистрСведений.ВходящаяОчередь")] [Version(12)] public sealed class IncomingMessage : IncomingMessageDataMapper
     {
+        #region "DATA CONTRACT"
+
         /// <summary>
         /// "МоментВремени" Порядковый номер сообщения (может генерироваться средствами СУБД) - numeric(19,0)
         /// </summary>
@@ -22,9 +24,9 @@ namespace DaJet.Data.Messaging.V2
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public long MessageNumber { get; set; } = 0L;
         /// <summary>
-        /// "Идентификатор" Уникальный идентификатор сообщения - binary(16)
+        /// "Заголовки" Заголовки сообщения в формате JSON { "ключ": "значение" } - nvarchar(max)
         /// </summary>
-        [Column("Идентификатор")] [Key] public Guid Uuid { get; set; }
+        [Column("Заголовки")] public string Headers { get; set; } = string.Empty;
         /// <summary>
         /// "Отправитель" Код или UUID отправителя сообщения - nvarchar(36)
         /// </summary>
@@ -38,10 +40,6 @@ namespace DaJet.Data.Messaging.V2
         /// </summary>
         [Column("ТелоСообщения")] public string MessageBody { get; set; } = string.Empty;
         /// <summary>
-        /// "ТипОперации" Тип операции: INSERT, UPDATE или DELETE - nvarchar(6)
-        /// </summary>
-        [Column("ТипОперации")] public string OperationType { get; set; } = string.Empty;
-        /// <summary>
         /// "ДатаВремя" Время создания сообщения - datetime2
         /// </summary>
         [Column("ДатаВремя")] public DateTime DateTimeStamp { get; set; } = DateTime.Now;
@@ -54,17 +52,21 @@ namespace DaJet.Data.Messaging.V2
         /// </summary>
         [Column("КоличествоОшибок")] public int ErrorCount { get; set; } = 0;
 
+        #endregion
+
+        #region "DATA MAPPING"
+
         private const string MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT {TABLE_NAME} " +
-            "({МоментВремени}, {Идентификатор}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({МоментВремени}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
             "SELECT NEXT VALUE FOR DaJetIncomingQueueSequence, " +
-            "@Идентификатор, @Отправитель, @ТипОперации, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
+            "@Заголовки, @Отправитель, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
 
         private const string PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT INTO {TABLE_NAME} " +
-            "({МоментВремени}, {Идентификатор}, {Отправитель}, {ТипОперации}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({МоментВремени}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
             "SELECT CAST(nextval('DaJetIncomingQueueSequence') AS numeric(19,0)), " +
-            "@Идентификатор, CAST(@Отправитель AS mvarchar), CAST(@ТипОперации AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
+            "CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
             "CAST(@ТелоСообщения AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
 
         public override string GetInsertScript(DatabaseProvider provider)
@@ -84,9 +86,8 @@ namespace DaJet.Data.Messaging.V2
 
             if (command is SqlCommand ms)
             {
-                ms.Parameters.Add("Идентификатор", SqlDbType.Binary);
+                ms.Parameters.Add("Заголовки", SqlDbType.NVarChar);
                 ms.Parameters.Add("Отправитель", SqlDbType.NVarChar);
-                ms.Parameters.Add("ТипОперации", SqlDbType.NVarChar);
                 ms.Parameters.Add("ТипСообщения", SqlDbType.NVarChar);
                 ms.Parameters.Add("ТелоСообщения", SqlDbType.NVarChar);
                 ms.Parameters.Add("ДатаВремя", SqlDbType.DateTime2);
@@ -95,9 +96,8 @@ namespace DaJet.Data.Messaging.V2
             }
             else if (command is NpgsqlCommand pg)
             {
-                pg.Parameters.Add("Идентификатор", NpgsqlDbType.Bytea);
+                pg.Parameters.Add("Заголовки", NpgsqlDbType.Varchar);
                 pg.Parameters.Add("Отправитель", NpgsqlDbType.Varchar);
-                pg.Parameters.Add("ТипОперации", NpgsqlDbType.Varchar);
                 pg.Parameters.Add("ТипСообщения", NpgsqlDbType.Varchar);
                 pg.Parameters.Add("ТелоСообщения", NpgsqlDbType.Varchar);
                 pg.Parameters.Add("ДатаВремя", NpgsqlDbType.Timestamp);
@@ -112,14 +112,15 @@ namespace DaJet.Data.Messaging.V2
                 throw new ArgumentOutOfRangeException(nameof(source));
             }
 
-            target.Parameters["Идентификатор"].Value = message.Uuid.ToByteArray();
+            target.Parameters["Заголовки"].Value = message.Headers;
             target.Parameters["Отправитель"].Value = message.Sender;
-            target.Parameters["ТипОперации"].Value = message.OperationType;
             target.Parameters["ТипСообщения"].Value = message.MessageType;
             target.Parameters["ТелоСообщения"].Value = message.MessageBody;
             target.Parameters["ДатаВремя"].Value = message.DateTimeStamp;
             target.Parameters["ОписаниеОшибки"].Value = message.ErrorDescription;
             target.Parameters["КоличествоОшибок"].Value = message.ErrorCount;
         }
+
+        #endregion
     }
 }

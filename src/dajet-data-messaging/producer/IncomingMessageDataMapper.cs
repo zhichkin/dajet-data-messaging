@@ -14,9 +14,17 @@ namespace DaJet.Data.Messaging
             {
                 return new V1.IncomingMessage();
             }
-            else if (version == 2)
+            else if (version == 10)
             {
-                return new V2.IncomingMessage();
+                return new V10.IncomingMessage();
+            }
+            else if (version == 11)
+            {
+                return new V11.IncomingMessage();
+            }
+            else if (version == 12)
+            {
+                return new V12.IncomingMessage();
             }
             return null;
         }

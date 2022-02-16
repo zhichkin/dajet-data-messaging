@@ -11,13 +11,16 @@ namespace DaJet.Data.Messaging
         private List<Type> IncomingMessageVersions { get; } = new List<Type>()
         {
             typeof(V1.IncomingMessage),
-            typeof(V2.IncomingMessage)
+            typeof(V10.IncomingMessage),
+            typeof(V11.IncomingMessage),
+            typeof(V12.IncomingMessage)
         };
         private List<Type> OutgoingMessageVersions { get; } = new List<Type>()
         {
             typeof(V1.OutgoingMessage),
-            typeof(V2.OutgoingMessage),
-            typeof(V3.OutgoingMessage)
+            typeof(V10.OutgoingMessage),
+            typeof(V11.OutgoingMessage),
+            typeof(V12.OutgoingMessage),
         };
         public int GetIncomingInterfaceVersion(in ApplicationObject queue)
         {
@@ -50,10 +53,10 @@ namespace DaJet.Data.Messaging
         {
             PropertyInfo[] properties = template.GetProperties();
 
-            //if (properties.Length != queue.Properties.Count)
-            //{
-            //    return false;
-            //}
+            if (properties.Length != queue.Properties.Count)
+            {
+                return false;
+            }
 
             foreach (PropertyInfo property in properties)
             {

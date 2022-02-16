@@ -15,13 +15,17 @@ namespace DaJet.Data.Messaging
             {
                 return new V1.OutgoingMessage();
             }
-            else if (version == 2)
+            else if (version == 10)
             {
-                return new V2.OutgoingMessage();
+                return new V10.OutgoingMessage();
             }
-            else if (version == 3)
+            else if (version == 11)
             {
-                return new V3.OutgoingMessage();
+                return new V11.OutgoingMessage();
+            }
+            else if (version == 12)
+            {
+                return new V12.OutgoingMessage();
             }
             return null;
         }
@@ -34,31 +38,32 @@ namespace DaJet.Data.Messaging
         /// "ТелоСообщения" Тело сообщения в формате JSON или XML - nvarchar(max)
         /// </summary>
         [Column("ТелоСообщения")] public string MessageBody { get; set; } = string.Empty;
+                
+        public abstract string GetSelectDataRowsScript(DatabaseProvider provider);
+        public abstract void GetMessageData<T>(in T source, in OutgoingMessageDataMapper target) where T : DbDataReader;
 
         /// <summary>
         /// Получает тело сообщения в формате UTF-8 для отправки в сетевой канал (RabbitMQ, Apache Kafka и т.п.)
         /// </summary>
-        public ReadOnlyMemory<byte> GetMessageBody()
-        {
-            if (string.IsNullOrEmpty(MessageBody))
-            {
-                return ReadOnlyMemory<byte>.Empty;
-            }
+        //public ReadOnlyMemory<byte> GetMessageBody()
+        //{
+        //    if (string.IsNullOrEmpty(MessageBody))
+        //    {
+        //        return ReadOnlyMemory<byte>.Empty;
+        //    }
 
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(MessageBody.Length * 2);
+        //    byte[] buffer = ArrayPool<byte>.Shared.Rent(MessageBody.Length * 2);
 
-            int encoded = Encoding.UTF8.GetBytes(MessageBody, 0, MessageBody.Length, buffer, 0);
+        //    int encoded = Encoding.UTF8.GetBytes(MessageBody, 0, MessageBody.Length, buffer, 0);
 
-            ReadOnlyMemory<byte> messageBody = new ReadOnlyMemory<byte>(buffer, 0, encoded);
+        //    ReadOnlyMemory<byte> messageBody = new ReadOnlyMemory<byte>(buffer, 0, encoded);
 
-            // FIXME:
-            // ReadOnlyMemory references buffer, which will be disposed after Return method is called !!!
-            ArrayPool<byte>.Shared.Return(buffer);
+        //    // FIXME:
+        //    // ReadOnlyMemory references buffer, which will be disposed after Return method is called !!!
+        //    ArrayPool<byte>.Shared.Return(buffer);
 
-            return messageBody;
-        }
+        //    return messageBody;
+        //}
 
-        public abstract string GetSelectDataRowsScript(DatabaseProvider provider);
-        public abstract void GetMessageData<T>(in T source, in OutgoingMessageDataMapper target) where T : DbDataReader;
     }
 }
