@@ -13,8 +13,8 @@ namespace DaJet.Data.Messaging.Test
         private readonly InfoBase _infoBase;
         private readonly ApplicationObject _incomingQueue;
         private readonly ApplicationObject _outgoingQueue;
-        //private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
-        private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=test_node_2;Username=postgres;Password=postgres;";
+        private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
+        //private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=test_node_2;Username=postgres;Password=postgres;";
 
         private readonly DbInterfaceValidator _validator = new DbInterfaceValidator();
         private readonly QueryBuilder _builder = new QueryBuilder(DatabaseProvider.PostgreSQL);
@@ -200,7 +200,6 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine($"* Тип сообщения: {item.MessageType}");
                 Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
                 Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
-                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
             }
             Console.WriteLine();
 
@@ -211,7 +210,6 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine($"* Тип сообщения: {item.MessageType}");
                 Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
                 Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
-                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
             }
             Console.WriteLine();
         }
@@ -236,7 +234,6 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine($"* Тип сообщения: {item.MessageType}");
                 Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
                 Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
-                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
             }
             Console.WriteLine();
 
@@ -246,7 +243,6 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine($"* Тип сообщения: {item.MessageType}");
                 Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
                 Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
-                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
             }
             Console.WriteLine();
         }
@@ -271,7 +267,6 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine($"* Тип сообщения: {item.MessageType}");
                 Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
                 Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
-                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
             }
             Console.WriteLine();
 
@@ -281,7 +276,6 @@ namespace DaJet.Data.Messaging.Test
                 Console.WriteLine($"* Тип сообщения: {item.MessageType}");
                 Console.WriteLine($"* Очередь cообщений узла: {item.NodeQueue}");
                 Console.WriteLine($"* Очередь cообщений брокера: {item.BrokerQueue}");
-                Console.WriteLine($"* Версионирование: {item.UseVersioning}");
             }
             Console.WriteLine();
         }

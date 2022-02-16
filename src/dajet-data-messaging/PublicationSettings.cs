@@ -101,8 +101,7 @@ namespace DaJet.Data.Messaging
                 {
                     MessageType = (string)reader["ТипСообщения"],
                     NodeQueue = (string)reader["ОчередьСообщенийУзла"],
-                    BrokerQueue = (string)reader["ОчередьСообщенийБрокера"],
-                    UseVersioning = (bool)reader["Версионирование"]
+                    BrokerQueue = (string)reader["ОчередьСообщенийБрокера"]
                 };
 
                 list.Add(item);
@@ -130,8 +129,7 @@ namespace DaJet.Data.Messaging
                 {
                     MessageType = (string)reader["ТипСообщения"],
                     NodeQueue = (string)reader["ОчередьСообщенийУзла"],
-                    BrokerQueue = (string)reader["ОчередьСообщенийБрокера"],
-                    UseVersioning = (bool)reader["Версионирование"]
+                    BrokerQueue = (string)reader["ОчередьСообщенийБрокера"]
                 };
 
                 list.Add(item);

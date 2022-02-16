@@ -137,14 +137,13 @@ namespace DaJet.Data
 
         private const string MS_PUBLICATION_NODE_PUBLICATIONS_SELECT_TEMPLATE =
             "SELECT {ТипСообщения} AS [ТипСообщения], " +
-            "{ОчередьСообщенийУзла} AS [ОчередьСообщенийУзла], {ОчередьСообщенийБрокера} AS [ОчередьСообщенийБрокера], " +
-            "CAST({Версионирование} AS bit) AS [Версионирование] " +
+            "{ОчередьСообщенийУзла} AS [ОчередьСообщенийУзла], {ОчередьСообщенийБрокера} AS [ОчередьСообщенийБрокера] " +
             "FROM {TABLE_NAME} WHERE {Ссылка} = @uuid ORDER BY {НомерСтроки} ASC;";
 
         private const string MS_PUBLICATION_NODE_SUBSCRIPTIONS_SELECT_TEMPLATE =
             "SELECT {ТипСообщения} AS [ТипСообщения], " +
-            "{ОчередьСообщенийУзла} AS [ОчередьСообщенийУзла], {ОчередьСообщенийБрокера} AS [ОчередьСообщенийБрокера], " +
-            "CAST({Версионирование} AS bit) AS [Версионирование] " +
+            "{ОчередьСообщенийУзла} AS [ОчередьСообщенийУзла], " +
+            "{ОчередьСообщенийБрокера} AS [ОчередьСообщенийБрокера] " +
             "FROM {TABLE_NAME} WHERE {Ссылка} = @uuid ORDER BY {НомерСтроки} ASC;";
 
         private const string PG_PUBLICATION_NODE_SELECT_TEMPLATE =
@@ -156,14 +155,14 @@ namespace DaJet.Data
 
         private const string PG_PUBLICATION_NODE_PUBLICATIONS_SELECT_TEMPLATE =
             "SELECT CAST({ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
-            "CAST({ОчередьСообщенийУзла} AS varchar) AS \"ОчередьСообщенийУзла\", CAST({ОчередьСообщенийБрокера} AS varchar) AS \"ОчередьСообщенийБрокера\", " +
-            "{Версионирование} AS \"Версионирование\" " +
+            "CAST({ОчередьСообщенийУзла} AS varchar) AS \"ОчередьСообщенийУзла\", " +
+            "CAST({ОчередьСообщенийБрокера} AS varchar) AS \"ОчередьСообщенийБрокера\" " +
             "FROM {TABLE_NAME} WHERE {Ссылка} = @uuid ORDER BY {НомерСтроки} ASC;";
 
         private const string PG_PUBLICATION_NODE_SUBSCRIPTIONS_SELECT_TEMPLATE =
             "SELECT CAST({ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
-            "CAST({ОчередьСообщенийУзла} AS varchar) AS \"ОчередьСообщенийУзла\", CAST({ОчередьСообщенийБрокера} AS varchar) AS \"ОчередьСообщенийБрокера\", " +
-            "{Версионирование} AS \"Версионирование\" " +
+            "CAST({ОчередьСообщенийУзла} AS varchar) AS \"ОчередьСообщенийУзла\", " +
+            "CAST({ОчередьСообщенийБрокера} AS varchar) AS \"ОчередьСообщенийБрокера\" " +
             "FROM {TABLE_NAME} WHERE {Ссылка} = @uuid ORDER BY {НомерСтроки} ASC;";
 
         public string BuildPublicationSelectScript(in Publication publication)
