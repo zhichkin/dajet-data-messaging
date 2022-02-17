@@ -23,4 +23,65 @@
 
 Примеры исходного кода для использования **DaJet.Data.Messaging** можно найти в папке проекта [**tests**](https://github.com/zhichkin/dajet-data-messaging/tree/main/src/tests).
 
-Библиотека прошла успешные промышленные испытания, обеспечивая обмен 100-ми миллионами сообщений с одной базой данных в обе стороны ежемесячно.
+Библиотека прошла успешные промышленные испытания, обеспечивая обмен 100-ми миллионов сообщений с одной базой данных в обе стороны ежемесячно.
+
+### Структура исходящей очереди сообщений (регистра сведений)
+
+![outgoing_message_queue](https://github.com/zhichkin/dajet-data-messaging/blob/main/img/outgoing_message_queue.png)
+
+| **Регистр сведений** | **Тип данных 1С**       | **Тип данных СУБД** | **Описание**                                       |
+|------------------------------------------------|---------------------|----------------------------------------------------|
+| НомерСообщения       | Число(19,0)             | numeric(19,0)       | Порядковый номер сообщения                         |
+| Идентификатор        | УникальныйИдентификатор | binary(16) - uuid   | Идентификатор сообщения (необязательный)           |
+| Заголовки            | Строка(0) переменная    | nvarchar(max)       | Заголовки сообщения                                |
+| ДатаВремя            | Дата(дата и время)      | datetime2           | Время формирования сообщения (необязательный)      |
+| ТипСообщения         | Строка(1024) переменная | nvarchar(1024)      | Тип сообщения, например, "Справочник.Номенклатура" |
+| ТелоСообщения        | Строка(0) переменная    | nvarchar(max)       | Тело сообщения в формате JSON или XML              |
+| Ссылка               | УникальныйИдентификатор | binary(16) - uuid   | Ссылка на объект 1С в теле сообщения               |
+
+Заголовки сообщения рекомендуется формировать в виде словаря строковых значений в формате JSON:
+
+```JSON
+{
+   "Ключ1": "Значение1",
+   "Ключ2": "Значение2",
+   "КлючN": "ЗначениеN"
+}
+```
+
+### Пример чтения сообщения из исходящей очереди 1С
+```C#
+public void Main()
+
+    if (!new MetadataService()
+        .UseConnectionString(MS_CONNECTION_STRING)
+        .UseDatabaseProvider(DatabaseProvider.SQLServer)
+        .TryOpenInfoBase(out InfoBase infoBase, out string error))
+    {
+        Console.WriteLine(error);
+        return;
+    }
+
+    ApplicationObject queue = infoBase.GetApplicationObjectByName($"РегистрСведений.ИсходящаяОчередь");
+
+    Console.WriteLine($"{queue.Name} [{queue.TableName}]");
+
+    using (IMessageConsumer consumer = new MsMessageConsumer(MS_CONNECTION_STRING, in queue))
+    {
+        do
+        {
+            consumer.TxBegin();
+
+            foreach (OutgoingMessageDataMapper message in consumer.Select())
+            {
+                ProcessMessageData(in message);
+            }
+
+            consumer.TxCommit();
+
+            Console.WriteLine($"Получено сообщений: {consumer.RecordsAffected}");
+        }
+        while (consumer.RecordsAffected > 0);
+    }
+}
+```
