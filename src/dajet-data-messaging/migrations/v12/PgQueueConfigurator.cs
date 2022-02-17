@@ -3,7 +3,7 @@ using DaJet.Metadata.Model;
 using System;
 using System.Collections.Generic;
 
-namespace DaJet.Data.Messaging.V3
+namespace DaJet.Data.Messaging.V12
 {
     public sealed class PgQueueConfigurator : IQueueConfigurator
     {
@@ -94,17 +94,16 @@ namespace DaJet.Data.Messaging.V3
         #region "CONFIGURE OUTGOING QUEUE"
 
         private const string OUTGOING_TRIGGER_EXISTS =
-            "SELECT 1 FROM information_schema.triggers WHERE LOWER(trigger_name) = LOWER('DaJetOutgoingQueue_before_insert_trigger');";
+            "SELECT 1 FROM information_schema.triggers WHERE LOWER(trigger_name) = LOWER('{TRIGGER_NAME}');";
 
         private const string CREATE_OUTGOING_FUNCTION_SCRIPT =
-            "CREATE OR REPLACE FUNCTION DaJetOutgoingQueue_before_insert_function() RETURNS trigger AS $$ BEGIN " +
+            "CREATE OR REPLACE FUNCTION {FUNCTION_NAME} RETURNS trigger AS $$ BEGIN " +
             "NEW.{МоментВремени} := CAST(nextval('DaJetOutgoingQueueSequence') AS numeric(19,0)); RETURN NEW; END $$ LANGUAGE 'plpgsql';";
 
-        private const string DROP_OUTGOING_TRIGGER_SCRIPT = "DROP TRIGGER IF EXISTS DaJetOutgoingQueue_before_insert_trigger ON {TABLE_NAME};";
+        private const string DROP_OUTGOING_TRIGGER_SCRIPT = "DROP TRIGGER IF EXISTS {TRIGGER_NAME} ON {TABLE_NAME};";
 
         private const string CREATE_OUTGOING_TRIGGER_SCRIPT =
-            "CREATE TRIGGER DaJetOutgoingQueue_before_insert_trigger BEFORE INSERT ON {TABLE_NAME} FOR EACH ROW " +
-            "EXECUTE PROCEDURE DaJetOutgoingQueue_before_insert_function();";
+            "CREATE TRIGGER {TRIGGER_NAME} BEFORE INSERT ON {TABLE_NAME} FOR EACH ROW EXECUTE PROCEDURE {FUNCTION_NAME};";
 
         public void ConfigureOutgoingMessageQueue(in ApplicationObject queue, out List<string> errors)
         {
@@ -112,7 +111,7 @@ namespace DaJet.Data.Messaging.V3
 
             try
             {
-                if (!OutgoingSequenceExists() || !OutgoingTriggerExists())
+                if (!OutgoingSequenceExists() || !OutgoingTriggerExists(in queue))
                 {
                     ConfigureOutgoingQueue(in queue);
                 }
@@ -122,9 +121,16 @@ namespace DaJet.Data.Messaging.V3
                 errors.Add(ExceptionHelper.GetErrorText(error));
             }
         }
-        private bool OutgoingTriggerExists()
+        private bool OutgoingTriggerExists(in ApplicationObject queue)
         {
-            return (_executor.ExecuteScalar<int>(OUTGOING_TRIGGER_EXISTS, 10) == 1);
+            List<string> templates = new List<string>()
+            {
+                OUTGOING_TRIGGER_EXISTS
+            };
+
+            _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);
+
+            return (_executor.ExecuteScalar<int>(scripts[0], 10) == 1);
         }
         private void ConfigureOutgoingQueue(in ApplicationObject queue)
         {

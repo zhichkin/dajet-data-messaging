@@ -8,30 +8,24 @@ using System.Reflection;
 
 namespace DaJet.Data.Messaging.Test
 {
-    [TestClass] public class MS_v0
+    [TestClass] public class MS_TEST
     {
         private readonly InfoBase _infoBase;
-        private readonly ApplicationObject _incomingQueue;
-        private readonly ApplicationObject _outgoingQueue;
         private const string MS_CONNECTION_STRING = "Data Source=zhichkin;Initial Catalog=dajet-messaging-ms;Integrated Security=True";
 
         private readonly DbInterfaceValidator _validator = new DbInterfaceValidator();
         private readonly QueryBuilder _builder = new QueryBuilder(DatabaseProvider.SQLServer);
-        private readonly DbQueueConfigurator _configurator = new DbQueueConfigurator(1, DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
 
-        public MS_v0()
+        public MS_TEST()
         {
             if (!new MetadataService()
                 .UseDatabaseProvider(DatabaseProvider.SQLServer)
                 .UseConnectionString(MS_CONNECTION_STRING)
-                .TryOpenInfoBase(out InfoBase infoBase, out string error))
+                .TryOpenInfoBase(out _infoBase, out string error))
             {
                 Console.WriteLine(error);
                 return;
             }
-            _infoBase = infoBase;
-            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередь10");
-            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередь10");
         }
 
         [TestMethod] public void Validate_DbInterface_Incoming()
@@ -73,144 +67,212 @@ namespace DaJet.Data.Messaging.Test
 
         [TestMethod] public void Script_IncomingInsert()
         {
-            for (int version = 1; version < 3; version++)
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                Console.WriteLine($"{_builder.BuildIncomingQueueInsertScript(in _incomingQueue, IncomingMessageDataMapper.Create(version))}");
+                ApplicationObject queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
+
+                Console.WriteLine($"{_builder.BuildIncomingQueueInsertScript(in queue, IncomingMessageDataMapper.Create(version))}");
                 Console.WriteLine();
             }
         }
         [TestMethod] public void Script_OutgoingSelect()
         {
-            ApplicationObject queue;
-            OutgoingMessageDataMapper message;
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
 
-            for (int version = 10; version < 13; version++)
+            foreach (int version in versions)
             {
-                Console.WriteLine($"Outgoing queue data contract version: {version}");
+                ApplicationObject queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
 
-                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
-                message = OutgoingMessageDataMapper.Create(version);
-
-                if (queue != null && message != null)
-                {
-                    Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in queue, in message)}");
-                }
-
+                Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in queue, OutgoingMessageDataMapper.Create(version))}");
                 Console.WriteLine();
             }
-
-            //ApplicationObject queue;
-
-            //for (int version = 10; version < 13; version++)
-            //{
-            //    Console.WriteLine($"Outgoing queue data contract version: {version}");
-
-            //    queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
-
-            //    if (queue != null)
-            //    {
-            //        Console.WriteLine(_builder.BuildSelectMessagesScript(in queue));
-            //    }
-
-            //    Console.WriteLine();
-            //}
         }
 
         [TestMethod] public void Configure_IncomingQueue()
         {
-            _configurator.ConfigureIncomingMessageQueue(in _incomingQueue, out List<string> errors);
+            ApplicationObject queue;
 
-            if (errors.Count > 0)
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                foreach (string error in errors)
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
+
+                Assert.AreEqual(version, _validator.GetIncomingInterfaceVersion(queue));
+                Console.WriteLine($"Incoming queue data contract version {version} is valid.");
+
+                DbQueueConfigurator configurator = new DbQueueConfigurator(version, DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
+                configurator.ConfigureIncomingMessageQueue(in queue, out List<string> errors);
+
+                if (errors.Count > 0)
                 {
-                    Console.WriteLine(error);
+                    foreach (string error in errors)
+                    {
+                        Console.WriteLine(error);
+                    }
                 }
-            }
-            else
-            {
-                Console.WriteLine("Incoming queue configured successfully.");
+                else
+                {
+                    Console.WriteLine($"Incoming queue [{queue.TableName}] configured successfully.");
+                }
+
+                Console.WriteLine();
             }
         }
         [TestMethod] public void Configure_OutgoingQueue()
         {
-            _configurator.ConfigureOutgoingMessageQueue(in _outgoingQueue, out List<string> errors);
+            ApplicationObject queue;
 
-            if (errors.Count > 0)
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                foreach (string error in errors)
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+
+                Assert.AreEqual(version, _validator.GetOutgoingInterfaceVersion(queue));
+                Console.WriteLine($"Outgoing queue data contract version {version} is valid.");
+
+                DbQueueConfigurator configurator = new DbQueueConfigurator(version, DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
+                configurator.ConfigureOutgoingMessageQueue(in queue, out List<string> errors);
+
+                if (errors.Count > 0)
                 {
-                    Console.WriteLine(error);
+                    foreach (string error in errors)
+                    {
+                        Console.WriteLine(error);
+                    }
                 }
-            }
-            else
-            {
-                Console.WriteLine("Outgoing queue configured successfully.");
+                else
+                {
+                    Console.WriteLine($"Outgoing queue [{queue.TableName}] configured successfully.");
+                }
+
+                Console.WriteLine();
             }
         }
         
-        private IEnumerable<IncomingMessageDataMapper> GetTestIncomingMessages()
+        private IEnumerable<IncomingMessageDataMapper> GetTestIncomingMessages(int version)
         {
             for (int i = 0; i < 10; i++)
             {
-                yield return new V1.IncomingMessage()
+                if (version == 1)
                 {
-                    Sender = "DaJet",
-                    Headers = string.Empty,
-                    MessageType = "test",
-                    MessageBody = $"{{ \"message\": {(i + 1)} }}",
-                    DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset)
-                };
+                    yield return new V1.IncomingMessage()
+                    {
+                        Sender = "DaJet",
+                        Headers = "{ \"version\": \"1\" }",
+                        MessageType = "version 1",
+                        MessageBody = $"{{ \"message\": {(i + 1)} }}",
+                        DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset)
+                    };
+                }
+                else if (version == 10)
+                {
+                    yield return new V10.IncomingMessage()
+                    {
+                        Uuid = Guid.NewGuid(),
+                        Sender = "DaJet",
+                        OperationType = "INSERT",
+                        MessageType = "version 10",
+                        MessageBody = $"{{ \"message\": {(i + 1)} }}",
+                        DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset),
+                        ErrorCount = 0,
+                        ErrorDescription = string.Empty
+                    };
+                }
+                else if (version == 11)
+                {
+                    yield return new V11.IncomingMessage()
+                    {
+                        Uuid = Guid.NewGuid(),
+                        Sender = "DaJet",
+                        Headers = "{ \"version\": \"11\" }",
+                        MessageType = "version 11",
+                        MessageBody = $"{{ \"message\": {(i + 1)} }}",
+                        DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset),
+                        ErrorCount = 0,
+                        ErrorDescription = string.Empty
+                    };
+                }
+                else if (version == 12)
+                {
+                    yield return new V12.IncomingMessage()
+                    {
+                        Sender = "DaJet",
+                        Headers = "{ \"version\": \"12\" }",
+                        MessageType = "version 12",
+                        MessageBody = $"{{ \"message\": {(i + 1)} }}",
+                        DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset),
+                        ErrorCount = 0,
+                        ErrorDescription = string.Empty
+                    };
+                }
             }
         }
         [TestMethod] public void MessageProducer_Insert()
         {
             int total = 0;
 
-            using (IMessageProducer producer = new MsMessageProducer(MS_CONNECTION_STRING, in _incomingQueue))
+            ApplicationObject queue;
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                foreach (IncomingMessageDataMapper message in GetTestIncomingMessages())
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
+
+                Console.WriteLine($"Produce, version {version}: {queue.Name} [{queue.TableName}]");
+
+                using (IMessageProducer producer = new MsMessageProducer(MS_CONNECTION_STRING, in queue))
                 {
-                    producer.Insert(in message); total++;
+                    int count = 0;
+
+                    foreach (IncomingMessageDataMapper message in GetTestIncomingMessages(version))
+                    {
+                        producer.Insert(in message); count++; total++;
+                    }
+
+                    Console.WriteLine($"Count [{version}] = {count}");
                 }
 
-                producer.TxBegin();
-                foreach (IncomingMessageDataMapper message in GetTestIncomingMessages())
-                {
-                    producer.Insert(in message); total++;
-                }
-                producer.TxCommit();
+                Console.WriteLine($"Total [{version}] = {total}");
+                Console.WriteLine();
             }
-
-            Console.WriteLine($"Total = {total}");
         }
         [TestMethod] public void MessageConsumer_Select()
         {
             int total = 0;
 
-            using (IMessageConsumer consumer = new MsMessageConsumer(MS_CONNECTION_STRING, in _outgoingQueue))
+            ApplicationObject queue;
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                do
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+
+                Console.WriteLine($"Consume, version {version}: {queue.Name} [{queue.TableName}]");
+
+                using (IMessageConsumer consumer = new MsMessageConsumer(MS_CONNECTION_STRING, in queue))
                 {
-                    foreach (OutgoingMessageDataMapper message in consumer.Select())
+                    do
                     {
-                        total++;
+                        consumer.TxBegin();
+                        foreach (OutgoingMessageDataMapper message in consumer.Select())
+                        {
+                            ShowMessageData(in message);
+                            total++;
+                        }
+                        consumer.TxCommit();
 
-                        ShowMessageData(in message);
+                        Console.WriteLine($"Count [{version}] = {consumer.RecordsAffected}");
                     }
-
-                    //consumer.TxBegin();
-                    //foreach (OutgoingMessageDataMapper message in consumer.Select())
-                    //{
-                    //    total++;
-                    //}
-                    //consumer.TxCommit();
-
-                    Console.WriteLine($"Count = {consumer.RecordsAffected}");
+                    while (consumer.RecordsAffected > 0);
                 }
-                while (consumer.RecordsAffected > 0);
+
+                Console.WriteLine($"Total [{version}] = {total}");
+                Console.WriteLine();
             }
-            Console.WriteLine($"Total = {total}");
         }
         private void ShowMessageData(in OutgoingMessageDataMapper message)
         {
@@ -220,6 +282,8 @@ namespace DaJet.Data.Messaging.Test
             {
                 Console.WriteLine($"{property.Name} = {property.GetValue(message)}");
             }
+
+            Console.WriteLine();
         }
 
         [TestMethod] public void Settings_Publication()

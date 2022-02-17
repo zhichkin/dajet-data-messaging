@@ -43,7 +43,7 @@ namespace DaJet.Data.Messaging.V12
 
         private const string MS_OUTGOING_QUEUE_COMPACTION_SELECT_SCRIPT_TEMPLATE =
             "DECLARE @messages TABLE " +
-            "(МоментВремени] numeric(19,0), [Идентификатор] binary(16), [ДатаВремя] datetime2, " +
+            "([МоментВремени] numeric(19,0), [Идентификатор] binary(16), [ДатаВремя] datetime2, " +
             "[Заголовки] nvarchar(max), [ТипСообщения] nvarchar(1024), [ТелоСообщения] nvarchar(max), [Ссылка] binary(16)); " +
             "WITH cte AS (SELECT TOP (@MessageCount) " +
             "{МоментВремени} AS [МоментВремени], {Идентификатор} AS [Идентификатор], {ДатаВремя} AS [ДатаВремя], " +

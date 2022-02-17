@@ -3,7 +3,7 @@ using DaJet.Metadata.Model;
 using System;
 using System.Collections.Generic;
 
-namespace DaJet.Data.Messaging.V2
+namespace DaJet.Data.Messaging.V10
 {
     public sealed class PgQueueConfigurator : IQueueConfigurator
     {

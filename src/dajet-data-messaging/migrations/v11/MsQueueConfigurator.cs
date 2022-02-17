@@ -3,7 +3,7 @@ using DaJet.Metadata.Model;
 using System;
 using System.Collections.Generic;
 
-namespace DaJet.Data.Messaging.V3
+namespace DaJet.Data.Messaging.V11
 {
     public sealed class MsQueueConfigurator : IQueueConfigurator
     {
@@ -98,21 +98,22 @@ namespace DaJet.Data.Messaging.V3
 
         #region "CONFIGURE OUTGOING QUEUE"
 
-        private const string OUTGOING_TRIGGER_EXISTS =
-            "SELECT 1 FROM sys.triggers WHERE name = 'DaJetOutgoingQueue_INSTEAD_OF_INSERT';";
+        private const string OUTGOING_TRIGGER_EXISTS = "SELECT 1 FROM sys.triggers WHERE name = '{TRIGGER_NAME}';";
 
         private const string DROP_OUTGOING_TRIGGER_SCRIPT =
-            "IF OBJECT_ID('DaJetOutgoingQueue_INSTEAD_OF_INSERT', 'TR') IS NOT NULL BEGIN DROP TRIGGER DaJetOutgoingQueue_INSTEAD_OF_INSERT END;";
+            "IF OBJECT_ID('{TRIGGER_NAME}', 'TR') IS NOT NULL BEGIN DROP TRIGGER {TRIGGER_NAME} END;";
 
         private const string CREATE_OUTGOING_TRIGGER_SCRIPT =
-            "CREATE TRIGGER DaJetOutgoingQueue_INSTEAD_OF_INSERT ON {TABLE_NAME} INSTEAD OF INSERT NOT FOR REPLICATION AS " +
+            "CREATE TRIGGER {TRIGGER_NAME} ON {TABLE_NAME} INSTEAD OF INSERT NOT FOR REPLICATION AS " +
             "INSERT {TABLE_NAME} " +
-            "({МоментВремени}, {Идентификатор}, {Отправитель}, {Получатели}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ТипОперации}, {ИдентификаторОбъекта}) " +
+            "({МоментВремени}, {Идентификатор}, {Заголовки}, {УдалитьОтправитель}, {УдалитьПолучатели}, " +
+            "{ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {Ссылка}) " +
             "SELECT NEXT VALUE FOR DaJetOutgoingQueueSequence, " +
-            "i.{Идентификатор}, i.{Отправитель}, i.{Получатели}, i.{ТипСообщения}, i.{ТелоСообщения}, i.{ДатаВремя}, i.{ТипОперации}, i.{ИдентификаторОбъекта} " +
+            "i.{Идентификатор}, i.{Заголовки}, i.{УдалитьОтправитель}, i.{УдалитьПолучатели}, " +
+            "i.{ТипСообщения}, i.{ТелоСообщения}, i.{ДатаВремя}, i.{Ссылка} " +
             "FROM inserted AS i;";
 
-        private const string ENABLE_OUTGOING_TRIGGER_SCRIPT = "ENABLE TRIGGER DaJetOutgoingQueue_INSTEAD_OF_INSERT ON {TABLE_NAME};";
+        private const string ENABLE_OUTGOING_TRIGGER_SCRIPT = "ENABLE TRIGGER {TRIGGER_NAME} ON {TABLE_NAME};";
 
         public void ConfigureOutgoingMessageQueue(in ApplicationObject queue, out List<string> errors)
         {
@@ -120,7 +121,7 @@ namespace DaJet.Data.Messaging.V3
 
             try
             {
-                if (!OutgoingSequenceExists() || !OutgoingTriggerExists())
+                if (!OutgoingSequenceExists() || !OutgoingTriggerExists(in queue))
                 {
                     ConfigureOutgoingQueue(in queue);
                 }
@@ -130,9 +131,16 @@ namespace DaJet.Data.Messaging.V3
                 errors.Add(ExceptionHelper.GetErrorText(error));
             }
         }
-        private bool OutgoingTriggerExists()
+        private bool OutgoingTriggerExists(in ApplicationObject queue)
         {
-            return (_executor.ExecuteScalar<int>(OUTGOING_TRIGGER_EXISTS, 10) == 1);
+            List<string> templates = new List<string>()
+            {
+                OUTGOING_TRIGGER_EXISTS
+            };
+
+            _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);
+
+            return (_executor.ExecuteScalar<int>(scripts[0], 10) == 1);
         }
         private void ConfigureOutgoingQueue(in ApplicationObject queue)
         {

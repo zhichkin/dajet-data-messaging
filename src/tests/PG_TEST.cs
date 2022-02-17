@@ -8,31 +8,24 @@ using System.Reflection;
 
 namespace DaJet.Data.Messaging.Test
 {
-    [TestClass] public class PG_v0
+    [TestClass] public class PG_TEST
     {
         private readonly InfoBase _infoBase;
-        private readonly ApplicationObject _incomingQueue;
-        private readonly ApplicationObject _outgoingQueue;
-        private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
-        //private const string PG_CONNECTION_STRING = "Host=127.0.0.1;Port=5432;Database=test_node_2;Username=postgres;Password=postgres;";
+        private const string PG_CONNECTION_STRING = "Host=localhost;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
 
         private readonly DbInterfaceValidator _validator = new DbInterfaceValidator();
         private readonly QueryBuilder _builder = new QueryBuilder(DatabaseProvider.PostgreSQL);
-        private readonly DbQueueConfigurator _configurator = new DbQueueConfigurator(1, DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
 
-        public PG_v0()
+        public PG_TEST()
         {
             if (!new MetadataService()
                 .UseDatabaseProvider(DatabaseProvider.PostgreSQL)
                 .UseConnectionString(PG_CONNECTION_STRING)
-                .TryOpenInfoBase(out InfoBase infoBase, out string error))
+                .TryOpenInfoBase(out _infoBase, out string error))
             {
                 Console.WriteLine(error);
                 return;
             }
-            _infoBase = infoBase;
-            _incomingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.¬ход€ща€ќчередьRabbitMQ");
-            _outgoingQueue = _infoBase.GetApplicationObjectByName("–егистр—ведений.»сход€ща€ќчередьRabbitMQ");
         }
 
         [TestMethod] public void Validate_DbInterface_Incoming()
@@ -74,116 +67,212 @@ namespace DaJet.Data.Messaging.Test
 
         [TestMethod] public void Script_IncomingInsert()
         {
-            for (int version = 1; version < 3; version++)
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                Console.WriteLine($"{_builder.BuildIncomingQueueInsertScript(in _incomingQueue, IncomingMessageDataMapper.Create(version))}");
+                ApplicationObject queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
+
+                Console.WriteLine($"{_builder.BuildIncomingQueueInsertScript(in queue, IncomingMessageDataMapper.Create(version))}");
                 Console.WriteLine();
             }
         }
         [TestMethod] public void Script_OutgoingSelect()
         {
-            for (int version = 1; version < 4; version++)
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in _outgoingQueue, OutgoingMessageDataMapper.Create(version))}");
+                ApplicationObject queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+
+                Console.WriteLine($"{_builder.BuildOutgoingQueueSelectScript(in queue, OutgoingMessageDataMapper.Create(version))}");
                 Console.WriteLine();
             }
         }
 
         [TestMethod] public void Configure_IncomingQueue()
         {
-            _configurator.ConfigureIncomingMessageQueue(in _incomingQueue, out List<string> errors);
+            ApplicationObject queue;
 
-            if (errors.Count > 0)
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                foreach (string error in errors)
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
+
+                Assert.AreEqual(version, _validator.GetIncomingInterfaceVersion(queue));
+                Console.WriteLine($"Incoming queue data contract version {version} is valid.");
+
+                DbQueueConfigurator configurator = new DbQueueConfigurator(version, DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
+                configurator.ConfigureIncomingMessageQueue(in queue, out List<string> errors);
+
+                if (errors.Count > 0)
                 {
-                    Console.WriteLine(error);
+                    foreach (string error in errors)
+                    {
+                        Console.WriteLine(error);
+                    }
                 }
-            }
-            else
-            {
-                Console.WriteLine("Incoming queue configured successfully.");
+                else
+                {
+                    Console.WriteLine($"Incoming queue [{queue.TableName}] configured successfully.");
+                }
+
+                Console.WriteLine();
             }
         }
         [TestMethod] public void Configure_OutgoingQueue()
         {
-            _configurator.ConfigureOutgoingMessageQueue(in _outgoingQueue, out List<string> errors);
+            ApplicationObject queue;
 
-            if (errors.Count > 0)
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                foreach (string error in errors)
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+
+                Assert.AreEqual(version, _validator.GetOutgoingInterfaceVersion(queue));
+                Console.WriteLine($"Outgoing queue data contract version {version} is valid.");
+
+                DbQueueConfigurator configurator = new DbQueueConfigurator(version, DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
+                configurator.ConfigureOutgoingMessageQueue(in queue, out List<string> errors);
+
+                if (errors.Count > 0)
                 {
-                    Console.WriteLine(error);
+                    foreach (string error in errors)
+                    {
+                        Console.WriteLine(error);
+                    }
                 }
-            }
-            else
-            {
-                Console.WriteLine("Outgoing queue configured successfully.");
+                else
+                {
+                    Console.WriteLine($"Outgoing queue [{queue.TableName}] configured successfully.");
+                }
+
+                Console.WriteLine();
             }
         }
 
-        private IEnumerable<IncomingMessageDataMapper> GetTestIncomingMessages()
+        private IEnumerable<IncomingMessageDataMapper> GetTestIncomingMessages(int version)
         {
             for (int i = 0; i < 10; i++)
             {
-                yield return new V1.IncomingMessage()
+                if (version == 1)
                 {
-                    Sender = "DaJet",
-                    Headers = string.Empty,
-                    MessageType = "test",
-                    MessageBody = $"{{ \"message\": {(i + 1)} }}",
-                    DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset)
-                };
+                    yield return new V1.IncomingMessage()
+                    {
+                        Sender = "DaJet",
+                        Headers = "{ \"version\": \"1\" }",
+                        MessageType = "version 1",
+                        MessageBody = $"{{ \"message\": {(i + 1)} }}",
+                        DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset)
+                    };
+                }
+                else if (version == 10)
+                {
+                    yield return new V10.IncomingMessage()
+                    {
+                        Uuid = Guid.NewGuid(),
+                        Sender = "DaJet",
+                        OperationType = "INSERT",
+                        MessageType = "version 10",
+                        MessageBody = $"{{ \"message\": {(i + 1)} }}",
+                        DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset),
+                        ErrorCount = 0,
+                        ErrorDescription = string.Empty
+                    };
+                }
+                else if (version == 11)
+                {
+                    yield return new V11.IncomingMessage()
+                    {
+                        Uuid = Guid.NewGuid(),
+                        Sender = "DaJet",
+                        Headers = "{ \"version\": \"11\" }",
+                        MessageType = "version 11",
+                        MessageBody = $"{{ \"message\": {(i + 1)} }}",
+                        DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset),
+                        ErrorCount = 0,
+                        ErrorDescription = string.Empty
+                    };
+                }
+                else if (version == 12)
+                {
+                    yield return new V12.IncomingMessage()
+                    {
+                        Sender = "DaJet",
+                        Headers = "{ \"version\": \"12\" }",
+                        MessageType = "version 12",
+                        MessageBody = $"{{ \"message\": {(i + 1)} }}",
+                        DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset),
+                        ErrorCount = 0,
+                        ErrorDescription = string.Empty
+                    };
+                }
             }
         }
         [TestMethod] public void MessageProducer_Insert()
         {
             int total = 0;
 
-            using (IMessageProducer producer = new PgMessageProducer(PG_CONNECTION_STRING, in _incomingQueue))
+            ApplicationObject queue;
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                foreach (IncomingMessageDataMapper message in GetTestIncomingMessages())
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
+
+                Console.WriteLine($"Produce, version {version}: {queue.Name} [{queue.TableName}]");
+
+                using (IMessageProducer producer = new PgMessageProducer(PG_CONNECTION_STRING, in queue))
                 {
-                    producer.Insert(in message); total++;
+                    int count = 0;
+
+                    foreach (IncomingMessageDataMapper message in GetTestIncomingMessages(version))
+                    {
+                        producer.Insert(in message); count++; total++;
+                    }
+
+                    Console.WriteLine($"Count [{version}] = {count}");
                 }
 
-                producer.TxBegin();
-                foreach (IncomingMessageDataMapper message in GetTestIncomingMessages())
-                {
-                    producer.Insert(in message); total++;
-                }
-                producer.TxCommit();
+                Console.WriteLine($"Total [{version}] = {total}");
+                Console.WriteLine();
             }
-
-            Console.WriteLine($"Total = {total}");
         }
         [TestMethod] public void MessageConsumer_Select()
         {
             int total = 0;
 
-            using (IMessageConsumer consumer = new PgMessageConsumer(PG_CONNECTION_STRING, in _outgoingQueue))
+            ApplicationObject queue;
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+
+            foreach (int version in versions)
             {
-                do
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+
+                Console.WriteLine($"Consume, version {version}: {queue.Name} [{queue.TableName}]");
+
+                using (IMessageConsumer consumer = new PgMessageConsumer(PG_CONNECTION_STRING, in queue))
                 {
-                    //foreach (OutgoingMessageDataMapper message in consumer.Select())
-                    //{
-                    //    total++;
-                    //    ShowMessageData(in message);
-                    //}
-
-                    consumer.TxBegin();
-                    foreach (OutgoingMessageDataMapper message in consumer.Select())
+                    do
                     {
-                        total++;
-                        ShowMessageData(in message);
-                    }
-                    consumer.TxCommit();
+                        consumer.TxBegin();
+                        foreach (OutgoingMessageDataMapper message in consumer.Select())
+                        {
+                            ShowMessageData(in message);
+                            total++;
+                        }
+                        consumer.TxCommit();
 
-                    Console.WriteLine($"Count = {consumer.RecordsAffected}");
+                        Console.WriteLine($"Count [{version}] = {consumer.RecordsAffected}");
+                    }
+                    while (consumer.RecordsAffected > 0);
                 }
-                while (consumer.RecordsAffected > 0);
+
+                Console.WriteLine($"Total [{version}] = {total}");
+                Console.WriteLine();
             }
-            Console.WriteLine($"Total = {total}");
         }
         private void ShowMessageData(in OutgoingMessageDataMapper message)
         {
@@ -193,6 +282,8 @@ namespace DaJet.Data.Messaging.Test
             {
                 Console.WriteLine($"{property.Name} = {property.GetValue(message)}");
             }
+
+            Console.WriteLine();
         }
 
         [TestMethod] public void Settings_Publication()
@@ -245,7 +336,6 @@ namespace DaJet.Data.Messaging.Test
             }
             Console.WriteLine();
         }
-
         [TestMethod] public void SelectMainNode()
         {
             PublicationSettings settings = new PublicationSettings(DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
@@ -278,7 +368,6 @@ namespace DaJet.Data.Messaging.Test
             }
             Console.WriteLine();
         }
-
         [TestMethod] public void SelectMessagingSettings()
         {
             new PublicationSettings(DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING)
