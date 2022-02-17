@@ -1,5 +1,5 @@
 # 1C:Enterprise 8 database C# adapter for messaging
-# Microsoft SQL Server and PostgreSQL are supported
+## Microsoft SQL Server and PostgreSQL are supported
 
 Адаптер C# для интеграции с базами данных 1С:Предприятие 8.
 
@@ -92,6 +92,13 @@ public void ConsumeOutgoingMessages()
 ```
 ### Программное создание объектов СУБД SEQUENCE и TRIGGER для исходящей очереди
 ```C#
+// Для исходящей очереди 1С это не обязательно, однако, при highload нагрузках,
+// в одну и ту же миллисекунду легко может попасть несколько сообщений.
+// Именно для это существует измерение "Идентификатор", но ...
+// Использование этого измерения в качестве подстраховки может и будет нарушать
+// требование соблюдения строгой последовательности при записи сообщений, если оно есть.
+// Это обусловлено тем, что уникальные идентификаторы генерируются случайным образом.
+
 public void ConfigureOutgoingQueue()
 
     if (!new MetadataService()
@@ -113,6 +120,7 @@ public void ConfigureOutgoingQueue()
     Console.WriteLine($"Версия исходящей очереди: {version}");
 
     DbQueueConfigurator configurator = new DbQueueConfigurator(version, DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
+    // Вызов следующего метода идемпотентный - если всё уже настроено, то ничего не происходит
     configurator.ConfigureOutgoingMessageQueue(in queue, out List<string> errors);
 
     if (errors.Count > 0)
