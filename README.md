@@ -79,13 +79,18 @@ public void ConsumeOutgoingMessages()
             consumer.TxCommit(); // Конец транзакции СУБД
 
             // Фиксация транзакции СУБД физически удаляет сообщения из очереди
+            // Отмена транзакции СУБД возвращает сообщения обратно в очередь
+            // Для отмены транзакции нужно вызвать исключение в блоке using до вызова consumer.TxCommit()
+            // или просто выйти из блока using, не вызывая consumer.TxCommit().
+            // Метод Dispose() класса MsMessageConsumer автоматически отменит незавершённую транзакцию.
+
             Console.WriteLine($"Получено сообщений: {consumer.RecordsAffected}");
         }
-        while (consumer.RecordsAffected > 0); // Читаем очередь до конца пока не станет пустой
+        while (consumer.RecordsAffected > 0); // Читаем очередь до конца, пока не станет пустой
     }
 }
 ```
-### Пример программного создания объектов СУБД SEQUENCE и TRIGGER для исходящей очереди
+### Программное создание объектов СУБД SEQUENCE и TRIGGER для исходящей очереди
 ```C#
 public void ConfigureOutgoingQueue()
 
