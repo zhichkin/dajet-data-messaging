@@ -87,7 +87,6 @@ public void ConsumeOutgoingMessages()
 		Console.WriteLine($"Заголовки: {message.Headers}");
 		Console.WriteLine($"Тип сообщения: {message.MessageType}");
 		Console.WriteLine($"Тело сообщения: {message.MessageBody}");
-		Console.WriteLine($"Тело сообщения: {message.MessageBody}");
 		Console.WriteLine($"Ссылка: {message.Reference}");
             }
 
