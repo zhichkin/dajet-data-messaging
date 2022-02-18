@@ -400,5 +400,84 @@ namespace DaJet.Data.Messaging.Test
             }
             Console.WriteLine();
         }
+
+        [TestMethod] public void Start_Consumer_Service()
+        {
+            string metadataName = "РегистрСведений.ТестоваяИсходящаяОчередь";
+
+            ApplicationObject queue = GetQueueMetadata(metadataName);
+            if (queue == null)
+            {
+                Console.WriteLine($"Объект метаданных \"{metadataName}\" не найден."); return;
+            }
+            Console.WriteLine($"{queue.Name} [{queue.TableName}]");
+
+            int version = GetOutgoingDataContractVersion(in queue);
+            if (version < 1) { return; }
+            Console.WriteLine($"Версия исходящей очереди: {version}");
+
+            if (!ConfigureOutgoingQueue(version, in queue))
+            {
+                return;
+            }
+            Console.WriteLine();
+
+            int total = 0;
+            using (IMessageConsumer consumer = new MsMessageConsumer(MS_CONNECTION_STRING, in queue))
+            {
+                do
+                {
+                    consumer.TxBegin();
+                    foreach (OutgoingMessageDataMapper message in consumer.Select())
+                    {
+                        ShowMessageData(in message); total++;
+                    }
+                    consumer.TxCommit();
+                }
+                while (consumer.RecordsAffected > 0);
+            }
+            Console.WriteLine($"Totally consumed = {total} messages.");
+        }
+        private ApplicationObject GetQueueMetadata(string metadataName)
+        {
+            if (!new MetadataService()
+                .UseConnectionString(MS_CONNECTION_STRING)
+                .UseDatabaseProvider(DatabaseProvider.SQLServer)
+                .TryOpenInfoBase(out InfoBase infoBase, out string error))
+            {
+                Console.WriteLine(error);
+                return null;
+            }
+            return infoBase.GetApplicationObjectByName(metadataName);
+        }
+        private int GetOutgoingDataContractVersion(in ApplicationObject queue)
+        {
+            DbInterfaceValidator validator = new DbInterfaceValidator();
+            int version = validator.GetOutgoingInterfaceVersion(in queue);
+            if (version < 1)
+            {
+                Console.WriteLine($"Не удалось определить версию контракта данных.");
+            }
+            return version;
+        }
+        private bool ConfigureOutgoingQueue(int version, in ApplicationObject queue)
+        {
+            DbQueueConfigurator configurator = new DbQueueConfigurator(version, DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
+            configurator.ConfigureOutgoingMessageQueue(in queue, out List<string> errors);
+
+            if (errors.Count > 0)
+            {
+                foreach (string error in errors)
+                {
+                    Console.WriteLine(error);
+                }
+
+                return false;
+            }
+            
+            Console.WriteLine($"Исходящая очередь настроена успешно.");
+
+            return true;
+        }
     }
 }
