@@ -79,9 +79,16 @@ public void ConsumeOutgoingMessages()
             consumer.TxBegin(); // Начало транзакции СУБД
 
             // Выбираем сообщения в цикле по 100 сообщений за 1 раз
-            foreach (OutgoingMessageDataMapper message in consumer.Select(100))
+            foreach (OutgoingMessage message in consumer.Select(100))
             {
-                ProcessMessageData(in message);
+                Console.WriteLine($"Номер сообщения: {message.MessageNumber}");
+		Console.WriteLine($"Идентификатор: {message.Uuid}");
+		Console.WriteLine($"Дата и время: {message.DateTimeStamp}");
+		Console.WriteLine($"Заголовки: {message.Headers}");
+		Console.WriteLine($"Тип сообщения: {message.MessageType}");
+		Console.WriteLine($"Тело сообщения: {message.MessageBody}");
+		Console.WriteLine($"Тело сообщения: {message.MessageBody}");
+		Console.WriteLine($"Ссылка: {message.Reference}");
             }
 
             consumer.TxCommit(); // Конец транзакции СУБД
@@ -168,7 +175,6 @@ public void ConfigureOutgoingQueue()
 	
 	ЗаписьJSON = Новый ЗаписьJSON();
 	ЗаписьJSON.УстановитьСтроку(Новый ПараметрыЗаписиJSON(ПереносСтрокJSON.Нет, ""));
-	
 	СериализаторXDTO.ЗаписатьJSON(ЗаписьJSON, Источник, НазначениеТипаXML.Явное);
 	
 	Возврат ЗаписьJSON.Закрыть();
