@@ -1,0 +1,79 @@
+WITH cte AS
+(
+   SELECT TOP (@MessageCount)
+      {НомерСообщения} AS [НомерСообщения],
+      {Идентификатор}  AS [Идентификатор],
+      {Заголовки}      AS [Заголовки],
+      {ТипСообщения}   AS [ТипСообщения],
+      {ТелоСообщения}  AS [ТелоСообщения],
+      {Ссылка}         AS [Ссылка],
+      {ДатаВремя}      AS [ДатаВремя]
+   FROM
+      {TABLE_NAME} WITH (ROWLOCK, READPAST)
+   ORDER BY
+      {НомерСообщения} ASC,
+      {Идентификатор}  ASC
+)
+DELETE cte OUTPUT
+   deleted.[НомерСообщения],
+   deleted.[Идентификатор],
+   deleted.[Заголовки],
+   deleted.[ТипСообщения],
+   deleted.[ТелоСообщения],
+   deleted.[Ссылка],
+   deleted.[ДатаВремя];
+
+* TEMPLATE *
+
+WITH cte AS
+(
+   SELECT TOP (@MessageCount)
+      {SELECT_FIELDS_WITH_ALIASES}
+   FROM
+      {TABLE_NAME} WITH (ROWLOCK, READPAST)
+   ORDER BY
+      {CLUSTERED_INDEX_FIELDS_WITH_ORDERING}
+)
+DELETE cte OUTPUT deleted.{SELECT_FIELDS};
+
+**************
+* PostgreSQL *
+**************
+
+WITH cte AS
+(
+   SELECT
+      {НомерСообщения},
+      {Идентификатор}
+   FROM
+      {TABLE_NAME}
+   ORDER BY
+      {НомерСообщения} ASC,
+      {Идентификатор}  ASC
+   LIMIT
+      @MessageCount
+)
+DELETE FROM {TABLE_NAME} t USING cte
+WHERE t.{НомерСообщения} = cte.{НомерСообщения}
+  AND t.{Идентификатор}  = cte.{Идентификатор}
+RETURNING
+   t.{НомерСообщения}                AS \"НомерСообщения\",
+   t.{Идентификатор}                 AS \"Идентификатор\",
+   CAST(t.{Заголовки} AS text)       AS \"Заголовки\",
+   CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\",
+   CAST(t.{ТелоСообщения} AS text)   AS \"ТелоСообщения\",
+   t.{Ссылка}                        AS \"Ссылка\",
+   t.{ДатаВремя}                     AS \"ДатаВремя\";
+
+* TEMPLATE *
+
+WITH cte AS
+(
+     SELECT {CLUSTERED_INDEX_FIELDS}
+       FROM {TABLE_NAME}
+   ORDER BY {CLUSTERED_INDEX_FIELDS_WITH_ORDERING}
+      LIMIT @MessageCount
+)
+DELETE FROM {TABLE_NAME} t USING cte
+WHERE t.{CLUSTERED_INDEX_FIELDS} = cte.{CLUSTERED_INDEX_FIELDS}
+RETURNING t.{SELECT_FIELDS_WITH_ALIASES};

@@ -17,27 +17,24 @@ namespace DaJet.Data.Messaging.V1
         /// <summary>
         /// "НомерСообщения" Порядковый номер сообщения (может генерироваться средствами СУБД) - numeric(19,0)
         /// </summary>
-        [Column("НомерСообщения")] [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.None)]
-        public long MessageNumber { get; set; } = 0L;
+        [Column("НомерСообщения", Order = 0, TypeName = "numeric(19,0)")] [Key] public long MessageNumber { get; set; } = 0L;
         /// <summary>
         /// "Идентификатор" Подстраховка на случай дублирования значения в измерении "НомерСообщения".
         /// Требуется для кода на 1С:Предприятие 8 (тип данных - УникальныйИдентификатор). - binary(16)
         /// </summary>
-        [Column("Идентификатор")] [Key] public Guid Uuid { get; set; } = Guid.Empty;
+        [Column("Идентификатор", Order = 1, TypeName = "binary(16)")] [Key] public Guid Uuid { get; set; } = Guid.Empty;
         /// <summary>
         /// "Заголовки" Заголовки сообщения в формате JSON { "ключ": "значение" } - nvarchar(max)
         /// </summary>
-        [Column("Заголовки")] public string Headers { get; set; } = string.Empty;
+        [Column("Заголовки", TypeName = "nvarchar(max)")] public string Headers { get; set; } = string.Empty;
         /// <summary>
         /// "ДатаВремя" Время создания сообщения - datetime2
         /// </summary>
-        [Column("ДатаВремя")] public DateTime DateTimeStamp { get; set; } = DateTime.MinValue;
+        [Column("ДатаВремя", TypeName = "datetime2")] public DateTime DateTimeStamp { get; set; } = DateTime.MinValue;
         /// <summary>
         /// "Ссылка" Уникальный идентификатор объекта 1С в теле сообщения - binary(16)
         /// </summary>
-        [Column("Ссылка")] public Guid Reference { get; set; } = Guid.Empty;
-
+        [Column("Ссылка", TypeName = "binary(16)")] public Guid Reference { get; set; } = Guid.Empty;
 
         #endregion
 
