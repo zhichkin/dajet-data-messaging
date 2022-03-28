@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DaJet.Data.Messaging
 {
-    public class DatabaseMessage
+    public sealed class DatabaseMessage
     {
         /// <summary>
         /// "НомерСообщения" Порядковый номер сообщения (может генерироваться средствами СУБД) - numeric(19,0)

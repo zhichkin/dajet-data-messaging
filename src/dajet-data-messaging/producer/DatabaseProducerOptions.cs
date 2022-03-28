@@ -2,13 +2,12 @@
 
 namespace DaJet.Data.Messaging
 {
-    public sealed class DatabaseConsumerOptions
+    public sealed class DatabaseProducerOptions
     {
         public string DatabaseProvider { get; set; }
         public string ConnectionString { get; set; }
+        public string SequenceObject { get; set; }
         public string QueueTableName { get; set; }
-        public Dictionary<string, string> OrderColumns { get; } = new Dictionary<string, string>();
         public Dictionary<string, string> TableColumns { get; } = new Dictionary<string, string>();
-        public int MessagesPerTransaction { get; set; } = 1000;
     }
 }
