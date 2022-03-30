@@ -36,7 +36,7 @@ namespace DaJet.Data.Messaging.Test
             //}
         }
 
-        [TestMethod] public void Build()
+        [TestMethod] public void Build_Script()
         {
             Type contract = typeof(V1.OutgoingMessage);
 
@@ -57,12 +57,14 @@ namespace DaJet.Data.Messaging.Test
                 }
             }
         }
+
         [TestMethod] public void MS_Test_Consumer()
         {
             ApplicationObject queue = _infoBase.GetApplicationObjectByName($"РегистрСведений.ИсходящаяОчередь1");
 
             DatabaseConsumerOptions options = new DatabaseConsumerOptions()
             {
+                YearOffset = _infoBase.YearOffset,
                 QueueTableName = queue.TableName,
                 ConnectionString = MS_CONNECTION_STRING,
                 MessagesPerTransaction = 1
@@ -87,41 +89,13 @@ namespace DaJet.Data.Messaging.Test
 
             consumer.Consume(in handler, source.Token);
         }
-        [TestMethod] public void PG_Test_Consumer()
-        {
-            ApplicationObject queue = _infoBase.GetApplicationObjectByName($"РегистрСведений.ИсходящаяОчередь1");
-
-            DatabaseConsumerOptions options = new DatabaseConsumerOptions()
-            {
-                QueueTableName = queue.TableName,
-                ConnectionString = PG_CONNECTION_STRING,
-                MessagesPerTransaction = 1
-            };
-
-            foreach (MetadataProperty property in queue.Properties)
-            {
-                options.TableColumns.Add(property.Name, property.Fields[0].Name);
-            }
-
-            CancellationTokenSource source = new CancellationTokenSource();
-
-            IDbMessageHandler handler = new Handlers.TestDbMessageHandler();
-            handler
-                .Use(new Handlers.MessageHeadersHandler())
-                .Use(new Handlers.MessageTypeHandler())
-                .Use(new Handlers.MessageBodyHandler());
-
-            IDbMessageConsumer consumer = new PostgreSQL.PgMessageConsumer(Options.Create(options));
-
-            consumer.Consume(in handler, source.Token);
-        }
-
         [TestMethod] public void MS_Test_Producer()
         {
             ApplicationObject queue = _infoBase.GetApplicationObjectByName($"РегистрСведений.ВходящаяОчередь1");
 
             DatabaseProducerOptions options = new DatabaseProducerOptions()
             {
+                YearOffset = _infoBase.YearOffset,
                 SequenceObject = queue.TableName.ToLower() + "_so",
                 QueueTableName = queue.TableName,
                 ConnectionString = MS_CONNECTION_STRING
@@ -142,6 +116,68 @@ namespace DaJet.Data.Messaging.Test
             IMessageDataMapper mapper = new SqlServer.MsMessageDataMapper(null, Options.Create(options));
 
             IDbMessageProducer producer = new SqlServer.MsMessageProducer(Options.Create(options), mapper);
+
+            producer.Produce(in message);
+        }
+
+        [TestMethod] public void PG_Test_Consumer()
+        {
+            ApplicationObject queue = _infoBase.GetApplicationObjectByName($"РегистрСведений.ИсходящаяОчередь1");
+
+            DatabaseConsumerOptions options = new DatabaseConsumerOptions()
+            {
+                YearOffset = _infoBase.YearOffset,
+                QueueTableName = queue.TableName,
+                ConnectionString = PG_CONNECTION_STRING,
+                MessagesPerTransaction = 1
+            };
+
+            foreach (MetadataProperty property in queue.Properties)
+            {
+                options.TableColumns.Add(property.Name, property.Fields[0].Name);
+            }
+
+            CancellationTokenSource source = new CancellationTokenSource();
+
+            IDbMessageHandler handler = new Handlers.TestDbMessageHandler();
+            handler
+                .Use(new Handlers.MessageHeadersHandler())
+                .Use(new Handlers.MessageTypeHandler())
+                .Use(new Handlers.MessageBodyHandler());
+
+            IMessageDataMapper mapper = new PostgreSQL.PgMessageDataMapper(Options.Create(options), null);
+
+            IDbMessageConsumer consumer = new PostgreSQL.PgMessageConsumer(Options.Create(options), mapper);
+
+            consumer.Consume(in handler, source.Token);
+        }
+        [TestMethod] public void PG_Test_Producer()
+        {
+            ApplicationObject queue = _infoBase.GetApplicationObjectByName($"РегистрСведений.ВходящаяОчередь1");
+
+            DatabaseProducerOptions options = new DatabaseProducerOptions()
+            {
+                YearOffset = _infoBase.YearOffset,
+                SequenceObject = queue.TableName.ToLower() + "_so",
+                QueueTableName = queue.TableName,
+                ConnectionString = PG_CONNECTION_STRING
+            };
+
+            foreach (MetadataProperty property in queue.Properties)
+            {
+                options.TableColumns.Add(property.Name, property.Fields[0].Name);
+            }
+
+            DatabaseMessage message = new DatabaseMessage()
+            {
+                Headers = "header заголовки",
+                MessageType = "type тип",
+                MessageBody = "body тело"
+            };
+
+            IMessageDataMapper mapper = new PostgreSQL.PgMessageDataMapper(null, Options.Create(options));
+
+            IDbMessageProducer producer = new PostgreSQL.PgMessageProducer(Options.Create(options), mapper);
 
             producer.Produce(in message);
         }

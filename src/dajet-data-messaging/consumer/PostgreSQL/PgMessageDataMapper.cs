@@ -1,16 +1,17 @@
-﻿using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
+using Npgsql;
+using NpgsqlTypes;
 using System;
 using System.Data;
 using System.Data.Common;
 
-namespace DaJet.Data.Messaging.SqlServer
+namespace DaJet.Data.Messaging.PostgreSQL
 {
-    public sealed class MsMessageDataMapper : IMessageDataMapper
+    public sealed class PgMessageDataMapper : IMessageDataMapper
     {
         private readonly DatabaseConsumerOptions _consumerOptions;
         private readonly DatabaseProducerOptions _producerOptions;
-        public MsMessageDataMapper(IOptions<DatabaseConsumerOptions> consumerOptions, IOptions<DatabaseProducerOptions> producerOptions)
+        public PgMessageDataMapper(IOptions<DatabaseConsumerOptions> consumerOptions, IOptions<DatabaseProducerOptions> producerOptions)
         {
             _consumerOptions = consumerOptions?.Value;
             _producerOptions = producerOptions?.Value;
@@ -24,7 +25,7 @@ namespace DaJet.Data.Messaging.SqlServer
 
             command.Parameters.Clear();
 
-            SqlParameter parameter = new SqlParameter("MessageCount", SqlDbType.Int)
+            NpgsqlParameter parameter = new NpgsqlParameter("MessageCount", NpgsqlDbType.Integer)
             {
                 Value = _consumerOptions.MessagesPerTransaction
             };
@@ -41,14 +42,12 @@ namespace DaJet.Data.Messaging.SqlServer
         private string BuildSelectScript()
         {
             string OUTGOING_QUEUE_SELECT_SCRIPT =
-                "WITH cte AS (SELECT TOP (@MessageCount) " +
-                "{НомерСообщения} AS [MessageNumber], {Заголовки} AS [Headers], " +
-                "{ТипСообщения} AS [MessageType], {ТелоСообщения} AS [MessageBody] " +
-                "FROM {TABLE_NAME} WITH (ROWLOCK, READPAST) " +
-                "ORDER BY {НомерСообщения} ASC) " +
-                "DELETE cte OUTPUT " +
-                "deleted.[MessageNumber], deleted.[Headers], " +
-                "deleted.[MessageType], deleted.[MessageBody];";
+                "WITH cte AS (SELECT {НомерСообщения} FROM {TABLE_NAME} " +
+                "ORDER BY {НомерСообщения} ASC LIMIT @MessageCount) " +
+                "DELETE FROM {TABLE_NAME} t USING cte " +
+                "WHERE t.{НомерСообщения} = cte.{НомерСообщения} " +
+                "RETURNING t.{НомерСообщения} AS \"MessageNumber\", CAST(t.{Заголовки} AS text) AS \"Headers\", " +
+                "CAST(t.{ТипСообщения} AS varchar) AS \"MessageType\", CAST(t.{ТелоСообщения} AS text) AS \"MessageBody\";";
 
             OUTGOING_QUEUE_SELECT_SCRIPT = OUTGOING_QUEUE_SELECT_SCRIPT.Replace("{TABLE_NAME}", _consumerOptions.QueueTableName);
 
@@ -83,24 +82,26 @@ namespace DaJet.Data.Messaging.SqlServer
 
             command.Parameters.Clear();
 
-            command.Parameters.Add(new SqlParameter("Заголовки", SqlDbType.NVarChar) { Value = message.Headers });
-            command.Parameters.Add(new SqlParameter("Отправитель", SqlDbType.NVarChar) { Value = string.Empty });
-            command.Parameters.Add(new SqlParameter("ТипСообщения", SqlDbType.NVarChar) { Value = message.MessageType });
-            command.Parameters.Add(new SqlParameter("ТелоСообщения", SqlDbType.NVarChar) { Value = message.MessageBody });
-            command.Parameters.Add(new SqlParameter("ДатаВремя", SqlDbType.DateTime2)
+            command.Parameters.Add(new NpgsqlParameter("Заголовки", NpgsqlDbType.Varchar) { Value = message.Headers });
+            command.Parameters.Add(new NpgsqlParameter("Отправитель", NpgsqlDbType.Varchar) { Value = string.Empty });
+            command.Parameters.Add(new NpgsqlParameter("ТипСообщения", NpgsqlDbType.Varchar) { Value = message.MessageType });
+            command.Parameters.Add(new NpgsqlParameter("ТелоСообщения", NpgsqlDbType.Varchar) { Value = message.MessageBody });
+            command.Parameters.Add(new NpgsqlParameter("ДатаВремя", NpgsqlDbType.Timestamp)
             {
                 Value = DateTime.Now.AddYears(_producerOptions.YearOffset)
             });
-            command.Parameters.Add(new SqlParameter("ОписаниеОшибки", SqlDbType.NVarChar) { Value = string.Empty });
-            command.Parameters.Add(new SqlParameter("КоличествоОшибок", SqlDbType.Int) { Value = 0 });
+            command.Parameters.Add(new NpgsqlParameter("ОписаниеОшибки", NpgsqlDbType.Varchar) { Value = string.Empty });
+            command.Parameters.Add(new NpgsqlParameter("КоличествоОшибок", NpgsqlDbType.Integer) { Value = 0 });
         }
         private string BuildInsertScript()
         {
             string script =
-                "INSERT {TABLE_NAME} " +
-                "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
-                "SELECT NEXT VALUE FOR {SEQUENCE_NAME}, " +
-                "@Заголовки, @Отправитель, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
+                "INSERT INTO {TABLE_NAME} " +
+                "({НомерСообщения}, {Заголовки}, {Отправитель}, {ТипСообщения}, " +
+                "{ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+                "SELECT CAST(nextval('{SEQUENCE_NAME}') AS numeric(19,0)), " +
+                "CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
+                "CAST(@ТелоСообщения AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
 
             script = script.Replace("{TABLE_NAME}", _producerOptions.QueueTableName);
             script = script.Replace("{SEQUENCE_NAME}", _producerOptions.SequenceObject);

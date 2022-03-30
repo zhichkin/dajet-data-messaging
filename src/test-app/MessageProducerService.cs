@@ -4,21 +4,22 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Handlers = DaJet.Data.Messaging.Handlers;
 
 namespace test_app
 {
-    public sealed class MessageConsumerService : BackgroundService
+    public sealed class MessageProducerService : BackgroundService
     {
-        private readonly IDbMessageHandler _handler;
         private readonly IDbMessageConsumer _consumer;
-        private readonly ILogger<MessageConsumerService> _logger;
+        private readonly IDbMessageProducer _producer;
+        private readonly ILogger<MessageProducerService> _logger;
 
         private CancellationToken _cancellationToken;
-        public MessageConsumerService(IDbMessageConsumer consumer, IDbMessageHandler handler, ILogger<MessageConsumerService> logger)
+        public MessageProducerService(IDbMessageConsumer consumer, IDbMessageProducer producer, ILogger<MessageProducerService> logger)
         {
             _logger = logger;
-            _handler = handler;
             _consumer = consumer;
+            _producer = producer;
         }
         protected override Task ExecuteAsync(CancellationToken cancellationToken)
         {
@@ -27,7 +28,7 @@ namespace test_app
         }
         private void DoWork()
         {
-            _logger.LogInformation($"[{nameof(MessageConsumerService)}] Service is running");
+            _logger.LogInformation($"[{nameof(MessageProducerService)}] Service is running");
 
             while (!_cancellationToken.IsCancellationRequested)
             {
@@ -35,7 +36,7 @@ namespace test_app
                 {
                     TryDoWork();
 
-                    _logger.LogInformation($"[{nameof(MessageConsumerService)}] Sleep 10 seconds ...");
+                    _logger.LogInformation($"[{nameof(MessageProducerService)}] Sleep 10 seconds ...");
 
                     Task.Delay(TimeSpan.FromSeconds(10)).Wait(_cancellationToken);
                 }
@@ -45,16 +46,26 @@ namespace test_app
                 }
                 catch (Exception error)
                 {
-                    _logger.LogError(error, $"[{nameof(MessageConsumerService)}]");
+                    _logger.LogError(error, $"[{nameof(MessageProducerService)}]");
                     _logger.LogTrace(error, String.Empty);
                 }
             }
 
-            _logger.LogInformation($"[{nameof(MessageConsumerService)}] Service is stopped");
+            _logger.LogInformation($"[{nameof(MessageProducerService)}] Service is stopped");
         }
         private void TryDoWork()
         {
-            _consumer.Consume(in _handler, _cancellationToken);
+            // FIXME
+
+            IDbMessageHandler handler = new Handlers.DbMessageProducerHandler(_producer);
+            
+            handler
+                .Use(new Handlers.TestDbMessageHandler())
+                .Use(new Handlers.MessageHeadersHandler())
+                .Use(new Handlers.MessageTypeHandler())
+                .Use(new Handlers.MessageBodyHandler());
+
+            _consumer.Consume(in handler, _cancellationToken);
         }
     }
 }
