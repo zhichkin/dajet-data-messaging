@@ -5,22 +5,24 @@ namespace DaJet.Data.Messaging.PostgreSQL
 {
     public sealed class PgMessageProducer : IDbMessageProducer
     {
-        private readonly IMessageDataMapper _mapper;
         private readonly DatabaseProducerOptions _options;
-        public PgMessageProducer(IOptions<DatabaseProducerOptions> options, IMessageDataMapper mapper)
+        private readonly IDataMapperProvider _mapperProvider;
+        public PgMessageProducer(IOptions<DatabaseProducerOptions> options, IDataMapperProvider mapperProvider)
         {
-            _mapper = mapper;
             _options = options.Value;
+            _mapperProvider = mapperProvider;
         }
         public void Produce(in DatabaseMessage message)
         {
+            IMessageDataMapper mapper = _mapperProvider.GetDataMapper<PgMessageProducer>();
+
             using (NpgsqlConnection connection = new NpgsqlConnection(_options.ConnectionString))
             {
                 connection.Open();
 
                 using (NpgsqlCommand command = connection.CreateCommand())
                 {
-                    _mapper.ConfigureInsertCommand(command, in message);
+                    mapper.ConfigureInsertCommand(command, in message);
 
                     _  = command.ExecuteNonQuery();
                 }

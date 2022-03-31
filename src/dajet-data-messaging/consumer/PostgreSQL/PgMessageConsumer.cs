@@ -6,15 +6,17 @@ namespace DaJet.Data.Messaging.PostgreSQL
 {
     public sealed class PgMessageConsumer : IDbMessageConsumer
     {
-        private readonly IMessageDataMapper _mapper;
         private readonly DatabaseConsumerOptions _options;
-        public PgMessageConsumer(IOptions<DatabaseConsumerOptions> options, IMessageDataMapper mapper)
+        private readonly IDataMapperProvider _mapperProvider;
+        public PgMessageConsumer(IOptions<DatabaseConsumerOptions> options, IDataMapperProvider mapperProvider)
         {
-            _mapper = mapper;
             _options = options.Value;
+            _mapperProvider = mapperProvider;
         }
         public void Consume(in IDbMessageHandler handler, CancellationToken token)
         {
+            IMessageDataMapper mapper = _mapperProvider.GetDataMapper<PgMessageConsumer>();
+
             int consumed;
 
             DatabaseMessage message = new DatabaseMessage();
@@ -25,7 +27,7 @@ namespace DaJet.Data.Messaging.PostgreSQL
 
                 using (NpgsqlCommand command = connection.CreateCommand())
                 {
-                    _mapper.ConfigureSelectCommand(command);
+                    mapper.ConfigureSelectCommand(command);
 
                     do
                     {
@@ -41,7 +43,7 @@ namespace DaJet.Data.Messaging.PostgreSQL
                                 {
                                     consumed++;
 
-                                    _mapper.MapDataToMessage(reader, in message);
+                                    mapper.MapDataToMessage(reader, in message);
 
                                     handler.Handle(in message);
                                 }

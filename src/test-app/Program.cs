@@ -15,9 +15,6 @@ namespace test_app
 {
     public static class Program
     {
-        private static string CONNECTION_STRING;
-        private static DatabaseProvider DATABASE_PROVIDER;
-
         private const string MS_CONNECTION_STRING = "Data Source=zhichkin;Initial Catalog=dajet-messaging-ms;Integrated Security=True";
         private const string PG_CONNECTION_STRING = "Host=localhost;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
 
@@ -26,16 +23,10 @@ namespace test_app
 
         public static void Main()
         {
-            CONNECTION_STRING = MS_CONNECTION_STRING;
-            DATABASE_PROVIDER = DatabaseProvider.SQLServer;
-
-            //CONNECTION_STRING = PG_CONNECTION_STRING;
-            //DATABASE_PROVIDER = DatabaseProvider.PostgreSQL;
-
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Information()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-                .WriteTo.File("dajet-agent.log", fileSizeLimitBytes: 1048576,
+                .WriteTo.File("dajet-agent.log", fileSizeLimitBytes: 1048576, rollOnFileSizeLimit: true,
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message}{NewLine}{Exception}")
                 .CreateLogger();
 
@@ -64,8 +55,8 @@ namespace test_app
         private static void ConfigureConsumerOptions()
         {
             if (!new MetadataService()
-                .UseDatabaseProvider(DATABASE_PROVIDER)
-                .UseConnectionString(CONNECTION_STRING)
+                .UseConnectionString(MS_CONNECTION_STRING)
+                .UseDatabaseProvider(DatabaseProvider.SQLServer)
                 .TryOpenInfoBase(out InfoBase infoBase, out string error))
             {
                 Console.WriteLine(error);
@@ -76,7 +67,8 @@ namespace test_app
 
             _consumerOptions = new DatabaseConsumerOptions()
             {
-                ConnectionString = CONNECTION_STRING,
+                ConnectionString = MS_CONNECTION_STRING,
+                DatabaseProvider = DatabaseProvider.SQLServer,
                 YearOffset = infoBase.YearOffset,
                 QueueTableName = queue.TableName,
                 MessagesPerTransaction = 1
@@ -99,8 +91,8 @@ namespace test_app
         private static void ConfigureProducerOptions()
         {
             if (!new MetadataService()
-                .UseDatabaseProvider(DATABASE_PROVIDER)
-                .UseConnectionString(CONNECTION_STRING)
+                .UseConnectionString(PG_CONNECTION_STRING)
+                .UseDatabaseProvider(DatabaseProvider.PostgreSQL)
                 .TryOpenInfoBase(out InfoBase infoBase, out string error))
             {
                 Console.WriteLine(error);
@@ -111,7 +103,8 @@ namespace test_app
 
             _producerOptions = new DatabaseProducerOptions()
             {
-                ConnectionString = CONNECTION_STRING,
+                ConnectionString = PG_CONNECTION_STRING,
+                DatabaseProvider = DatabaseProvider.PostgreSQL,
                 YearOffset = infoBase.YearOffset,
                 QueueTableName = queue.TableName,
                 SequenceObject = queue.TableName.ToLower() + "_so"
@@ -138,31 +131,44 @@ namespace test_app
                 .AddSingleton(Options.Create(_consumerOptions))
                 .AddSingleton(Options.Create(_producerOptions));
 
-            //IDbMessageHandler handler = new Handlers.TestDbMessageHandler();
-            //handler
-            //    .Use(new Handlers.MessageHeadersHandler())
-            //    .Use(new Handlers.MessageTypeHandler())
-            //    .Use(new Handlers.MessageBodyHandler());
+            services.AddSingleton(DataMapperProvider.Factory);
+            services.AddSingleton<SqlServer.MsMessageDataMapper>();
+            services.AddSingleton<PostgreSQL.PgMessageDataMapper>();
 
-            //services.AddSingleton(handler);
-
-            if (DATABASE_PROVIDER == DatabaseProvider.SQLServer)
+            if (_consumerOptions.DatabaseProvider == DatabaseProvider.SQLServer)
             {
                 services.AddSingleton<IDbMessageConsumer, SqlServer.MsMessageConsumer>();
-                services.AddSingleton<IDbMessageProducer, SqlServer.MsMessageProducer>();
-                services.AddSingleton<IMessageDataMapper, SqlServer.MsMessageDataMapper>();
             }
             else
             {
                 services.AddSingleton<IDbMessageConsumer, PostgreSQL.PgMessageConsumer>();
-                services.AddSingleton<IDbMessageProducer, PostgreSQL.PgMessageProducer>();
-                services.AddSingleton<IMessageDataMapper, PostgreSQL.PgMessageDataMapper>();
             }
 
-            //services.AddHostedService<MessageConsumerService>();
+            if (_producerOptions.DatabaseProvider == DatabaseProvider.SQLServer)
+            {
+                services.AddSingleton<IDbMessageProducer, SqlServer.MsMessageProducer>();
+            }
+            else
+            {
+                services.AddSingleton<IDbMessageProducer, PostgreSQL.PgMessageProducer>();
+            }
+
             services.AddHostedService<MessageProducerService>();
 
-            //TODO: consume MS message and produce it to PG =) or vice versa
+            //services.AddSingleton<Handlers.DbMessageProducerHandler>();
+            //services.AddSingleton(serviceProvider =>
+            //{
+            //    IDbMessageHandler handler = serviceProvider.GetRequiredService<Handlers.DbMessageProducerHandler>();
+
+            //    handler
+            //    .Use(new Handlers.TestDbMessageHandler())
+            //    .Use(new Handlers.MessageHeadersHandler())
+            //    .Use(new Handlers.MessageTypeHandler())
+            //    .Use(new Handlers.MessageBodyHandler());
+
+            //    return handler;
+            //});
+            //services.AddHostedService<MessageConsumerService>();
         }
     }
 }
