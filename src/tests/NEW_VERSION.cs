@@ -17,23 +17,23 @@ namespace DaJet.Data.Messaging.Test
         private const string PG_CONNECTION_STRING = "Host=localhost;Port=5432;Database=dajet-messaging-pg;Username=postgres;Password=postgres;";
         public NEW_VERSION()
         {
-            if (!new MetadataService()
-                .UseConnectionString(MS_CONNECTION_STRING)
-                .UseDatabaseProvider(DatabaseProvider.SQLServer)
-                .TryOpenInfoBase(out _infoBase, out string error))
-            {
-                Console.WriteLine(error);
-                return;
-            }
-
             //if (!new MetadataService()
-            //    .UseConnectionString(PG_CONNECTION_STRING)
-            //    .UseDatabaseProvider(DatabaseProvider.PostgreSQL)
+            //    .UseConnectionString(MS_CONNECTION_STRING)
+            //    .UseDatabaseProvider(DatabaseProvider.SQLServer)
             //    .TryOpenInfoBase(out _infoBase, out string error))
             //{
             //    Console.WriteLine(error);
             //    return;
             //}
+
+            if (!new MetadataService()
+                .UseConnectionString(PG_CONNECTION_STRING)
+                .UseDatabaseProvider(DatabaseProvider.PostgreSQL)
+                .TryOpenInfoBase(out _infoBase, out string error))
+            {
+                Console.WriteLine(error);
+                return;
+            }
         }
 
         [TestMethod] public void Build()
@@ -81,9 +81,7 @@ namespace DaJet.Data.Messaging.Test
                 .Use(new Handlers.MessageTypeHandler())
                 .Use(new Handlers.MessageBodyHandler());
 
-            IMessageDataMapper mapper = new SqlServer.MsMessageDataMapper(Options.Create(options), null);
-
-            IDbMessageConsumer consumer = new SqlServer.MsMessageConsumer(Options.Create(options), mapper);
+            IDbMessageConsumer consumer = new SqlServer.MsMessageConsumer(Options.Create(options));
 
             consumer.Consume(in handler, source.Token);
         }
@@ -114,36 +112,6 @@ namespace DaJet.Data.Messaging.Test
             IDbMessageConsumer consumer = new PostgreSQL.PgMessageConsumer(Options.Create(options));
 
             consumer.Consume(in handler, source.Token);
-        }
-
-        [TestMethod] public void MS_Test_Producer()
-        {
-            ApplicationObject queue = _infoBase.GetApplicationObjectByName($"РегистрСведений.ВходящаяОчередь1");
-
-            DatabaseProducerOptions options = new DatabaseProducerOptions()
-            {
-                SequenceObject = queue.TableName.ToLower() + "_so",
-                QueueTableName = queue.TableName,
-                ConnectionString = MS_CONNECTION_STRING
-            };
-
-            foreach (MetadataProperty property in queue.Properties)
-            {
-                options.TableColumns.Add(property.Name, property.Fields[0].Name);
-            }
-
-            DatabaseMessage message = new DatabaseMessage()
-            {
-                Headers = "header заголовки",
-                MessageType= "type тип",
-                MessageBody = "body тело"
-            };
-
-            IMessageDataMapper mapper = new SqlServer.MsMessageDataMapper(null, Options.Create(options));
-
-            IDbMessageProducer producer = new SqlServer.MsMessageProducer(Options.Create(options), mapper);
-
-            producer.Produce(in message);
         }
     }
 }
