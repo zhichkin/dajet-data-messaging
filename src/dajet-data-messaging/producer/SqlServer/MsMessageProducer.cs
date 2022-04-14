@@ -5,24 +5,22 @@ namespace DaJet.Data.Messaging.SqlServer
 {
     public sealed class MsMessageProducer : IDbMessageProducer
     {
+        private readonly IMessageDataMapper _mapper;
         private readonly DatabaseProducerOptions _options;
-        private readonly IDataMapperProvider _mapperProvider;
-        public MsMessageProducer(IOptions<DatabaseProducerOptions> options, IDataMapperProvider mapperProvider)
+        public MsMessageProducer(IOptions<DatabaseProducerOptions> options, IMessageDataMapper mapper)
         {
+            _mapper = mapper;
             _options = options.Value;
-            _mapperProvider = mapperProvider;
         }
         public void Produce(in DatabaseMessage message)
         {
-            IMessageDataMapper mapper = _mapperProvider.GetDataMapper<MsMessageProducer>();
-            
             using (SqlConnection connection = new SqlConnection(_options.ConnectionString))
             {
                 connection.Open();
 
                 using (SqlCommand command = connection.CreateCommand())
                 {
-                    mapper.ConfigureInsertCommand(command, in message);
+                    _mapper.ConfigureInsertCommand(command, in message);
 
                     _  = command.ExecuteNonQuery();
                 }
