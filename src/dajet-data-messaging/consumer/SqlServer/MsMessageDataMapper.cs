@@ -50,7 +50,7 @@ namespace DaJet.Data.Messaging.SqlServer
                 "deleted.[MessageNumber], deleted.[Headers], " +
                 "deleted.[MessageType], deleted.[MessageBody];";
 
-            OUTGOING_QUEUE_SELECT_SCRIPT = OUTGOING_QUEUE_SELECT_SCRIPT.Replace("{TABLE_NAME}", _consumerOptions.QueueTable);
+            OUTGOING_QUEUE_SELECT_SCRIPT = OUTGOING_QUEUE_SELECT_SCRIPT.Replace("{TABLE_NAME}", _consumerOptions.QueueTableName);
 
             foreach (var column in _consumerOptions.TableColumns)
             {

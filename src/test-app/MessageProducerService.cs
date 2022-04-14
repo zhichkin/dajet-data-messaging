@@ -28,7 +28,7 @@ namespace test_app
         }
         private void DoWork()
         {
-            _logger.LogInformation($"[{nameof(MessageProducerService)} {Thread.CurrentThread.ManagedThreadId}] Service is running");
+            _logger.LogInformation($"[{nameof(MessageProducerService)}] Service is running");
 
             while (!_cancellationToken.IsCancellationRequested)
             {
