@@ -87,10 +87,7 @@ namespace DaJet.Data.Messaging.SqlServer
             command.Parameters.Add(new SqlParameter("Отправитель", SqlDbType.NVarChar) { Value = string.Empty });
             command.Parameters.Add(new SqlParameter("ТипСообщения", SqlDbType.NVarChar) { Value = message.MessageType });
             command.Parameters.Add(new SqlParameter("ТелоСообщения", SqlDbType.NVarChar) { Value = message.MessageBody });
-            command.Parameters.Add(new SqlParameter("ДатаВремя", SqlDbType.DateTime2)
-            {
-                Value = DateTime.Now.AddYears(_producerOptions.YearOffset)
-            });
+            command.Parameters.Add(new SqlParameter("ДатаВремя", SqlDbType.DateTime2) { Value = DateTime.Now });
             command.Parameters.Add(new SqlParameter("ОписаниеОшибки", SqlDbType.NVarChar) { Value = string.Empty });
             command.Parameters.Add(new SqlParameter("КоличествоОшибок", SqlDbType.Int) { Value = 0 });
         }
