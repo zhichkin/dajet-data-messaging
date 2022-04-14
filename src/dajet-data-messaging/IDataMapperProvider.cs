@@ -1,5 +1,4 @@
-﻿using DaJet.Metadata;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
@@ -41,6 +40,8 @@ namespace DaJet.Data.Messaging
 
         #endregion
 
+        #region "INSTANCE MEMBERS"
+
         private readonly IServiceProvider _services;
         private readonly Dictionary<Type, Type> _registry = new Dictionary<Type, Type>();
         public DataMapperProvider(IServiceProvider services)
@@ -63,5 +64,7 @@ namespace DaJet.Data.Messaging
 
             return _services.GetRequiredService(implementation) as IMessageDataMapper;
         }
+
+        #endregion
     }
 }

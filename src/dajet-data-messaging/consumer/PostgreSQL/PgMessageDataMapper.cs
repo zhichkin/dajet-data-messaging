@@ -49,7 +49,7 @@ namespace DaJet.Data.Messaging.PostgreSQL
                 "RETURNING t.{НомерСообщения} AS \"MessageNumber\", CAST(t.{Заголовки} AS text) AS \"Headers\", " +
                 "CAST(t.{ТипСообщения} AS varchar) AS \"MessageType\", CAST(t.{ТелоСообщения} AS text) AS \"MessageBody\";";
 
-            OUTGOING_QUEUE_SELECT_SCRIPT = OUTGOING_QUEUE_SELECT_SCRIPT.Replace("{TABLE_NAME}", _consumerOptions.QueueTableName);
+            OUTGOING_QUEUE_SELECT_SCRIPT = OUTGOING_QUEUE_SELECT_SCRIPT.Replace("{TABLE_NAME}", _consumerOptions.QueueTable);
 
             foreach (var column in _consumerOptions.TableColumns)
             {

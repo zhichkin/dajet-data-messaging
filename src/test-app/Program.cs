@@ -10,6 +10,7 @@ using System;
 using Handlers = DaJet.Data.Messaging.Handlers;
 using PostgreSQL = DaJet.Data.Messaging.PostgreSQL;
 using SqlServer = DaJet.Data.Messaging.SqlServer;
+using Logging = Microsoft.Extensions.Logging;
 
 namespace test_app
 {
@@ -70,7 +71,7 @@ namespace test_app
                 ConnectionString = MS_CONNECTION_STRING,
                 DatabaseProvider = DatabaseProvider.SQLServer,
                 YearOffset = infoBase.YearOffset,
-                QueueTableName = queue.TableName,
+                QueueTable = queue.TableName,
                 MessagesPerTransaction = 1
             };
 
@@ -153,7 +154,16 @@ namespace test_app
                 services.AddSingleton<IDbMessageProducer, PostgreSQL.PgMessageProducer>();
             }
 
-            services.AddHostedService<MessageProducerService>();
+            //services.AddHostedService<MessageProducerService>();
+
+            services.AddSingleton<IHostedService>(serviceProvider =>
+            {
+                IDbMessageConsumer consumer = serviceProvider.GetRequiredService<IDbMessageConsumer>();
+                IDbMessageProducer producer = serviceProvider.GetRequiredService<IDbMessageProducer>();
+                Logging.ILogger<MessageProducerService> logger = serviceProvider.GetRequiredService<Logging.ILogger<MessageProducerService>>();
+                
+                return new MessageProducerService(consumer, producer, logger);
+            });
 
             //services.AddSingleton<Handlers.DbMessageProducerHandler>();
             //services.AddSingleton(serviceProvider =>

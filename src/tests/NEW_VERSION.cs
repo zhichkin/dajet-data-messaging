@@ -65,7 +65,7 @@ namespace DaJet.Data.Messaging.Test
             DatabaseConsumerOptions options = new DatabaseConsumerOptions()
             {
                 YearOffset = _infoBase.YearOffset,
-                QueueTableName = queue.TableName,
+                QueueTable = queue.TableName,
                 ConnectionString = MS_CONNECTION_STRING,
                 MessagesPerTransaction = 1
             };
@@ -127,7 +127,7 @@ namespace DaJet.Data.Messaging.Test
             DatabaseConsumerOptions options = new DatabaseConsumerOptions()
             {
                 YearOffset = _infoBase.YearOffset,
-                QueueTableName = queue.TableName,
+                QueueTable = queue.TableName,
                 ConnectionString = PG_CONNECTION_STRING,
                 MessagesPerTransaction = 1
             };
