@@ -29,6 +29,14 @@ namespace DaJet.Data.Messaging.V12
         /// </summary>
         [Column("Заголовки")] public string Headers { get; set; } = string.Empty;
         /// <summary>
+        /// "Отправитель" Код или UUID отправителя сообщения - nvarchar(36)
+        /// </summary>
+        [Column("Отправитель")] public string Sender { get; set; } = string.Empty;
+        /// <summary>
+        /// "Получатели" Коды или UUID получателей сообщения в формате CSV - nvarchar(max)
+        /// </summary>
+        [Column("Получатели")] public string Recipients { get; set; } = string.Empty;
+        /// <summary>
         /// "ДатаВремя" Время создания сообщения - datetime2
         /// </summary>
         [Column("ДатаВремя")] public DateTime DateTimeStamp { get; set; } = DateTime.Now;
@@ -44,17 +52,21 @@ namespace DaJet.Data.Messaging.V12
         private const string MS_OUTGOING_QUEUE_COMPACTION_SELECT_SCRIPT_TEMPLATE =
             "DECLARE @messages TABLE " +
             "([МоментВремени] numeric(19,0), [Идентификатор] binary(16), [ДатаВремя] datetime2, " +
-            "[Заголовки] nvarchar(max), [ТипСообщения] nvarchar(1024), [ТелоСообщения] nvarchar(max), [Ссылка] binary(16)); " +
+            "[Отправитель] nvarchar(36), [Получатели] nvarchar(max), [Заголовки] nvarchar(max), " +
+            "[ТипСообщения] nvarchar(1024), [ТелоСообщения] nvarchar(max), [Ссылка] binary(16)); " +
             "WITH cte AS (SELECT TOP (@MessageCount) " +
             "{МоментВремени} AS [МоментВремени], {Идентификатор} AS [Идентификатор], {ДатаВремя} AS [ДатаВремя], " +
-            "{Заголовки} AS [Заголовки], {ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], {Ссылка} AS [Ссылка] " +
+            "{Отправитель} AS [Отправитель], {Получатели} AS [Получатели], {Заголовки} AS [Заголовки], " +
+            "{ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], {Ссылка} AS [Ссылка] " +
             "FROM {TABLE_NAME} WITH (ROWLOCK, READPAST) ORDER BY {МоментВремени} ASC, {Идентификатор} ASC) " +
             "DELETE cte OUTPUT " +
-            "deleted.[МоментВремени], deleted.[Идентификатор], deleted.[ДатаВремя], " +
-            "deleted.[Заголовки], deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[Ссылка] " +
+            "deleted.[МоментВремени], deleted.[Идентификатор], deleted.[ДатаВремя], deleted.[Отправитель], " +
+            "deleted.[Получатели], deleted.[Заголовки], deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[Ссылка] " +
             "INTO @messages; " +
-            "SELECT [МоментВремени], [Идентификатор], [ДатаВремя], [Заголовки], [ТипСообщения], [ТелоСообщения], [Ссылка] " +
-            "FROM (SELECT [МоментВремени], [Идентификатор], [ДатаВремя], [Заголовки], [ТипСообщения], [ТелоСообщения], [Ссылка],  " +
+            "SELECT [МоментВремени], [Идентификатор], [ДатаВремя], [Отправитель], [Получатели], " +
+            "[Заголовки], [ТипСообщения], [ТелоСообщения], [Ссылка] " +
+            "FROM (SELECT [МоментВремени], [Идентификатор], [ДатаВремя], [Отправитель], [Получатели], " +
+            "[Заголовки], [ТипСообщения], [ТелоСообщения], [Ссылка], " +
             "MIN([МоментВремени]) OVER(PARTITION BY [Ссылка]) AS [Версия] FROM @messages) AS T " +
             "WHERE [ТелоСообщения] <> '' OR [МоментВремени] = [Версия] ORDER BY [МоментВремени] ASC, [Идентификатор] ASC;";
 
@@ -63,11 +75,12 @@ namespace DaJet.Data.Messaging.V12
             "cte AS (SELECT {МоментВремени}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {МоментВремени} ASC, {Идентификатор} ASC LIMIT @MessageCount), " +
             "del AS (DELETE FROM {TABLE_NAME} t USING cte WHERE t.{МоментВремени} = cte.{МоментВремени} AND t.{Идентификатор} = cte.{Идентификатор} " +
             "RETURNING t.{МоментВремени} AS \"МоментВремени\", t.{Идентификатор} AS \"Идентификатор\", t.{ДатаВремя} AS \"ДатаВремя\", " +
+            "CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", CAST(t.{Получатели} AS varchar) AS \"Получатели\", " +
             "CAST(t.{Заголовки} AS text) AS \"Заголовки\", CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
             "CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", t.{Ссылка} AS \"Ссылка\"), " +
-            "ver AS (SELECT МоментВремени, Идентификатор, ДатаВремя, Заголовки, ТипСообщения, ТелоСообщения, Ссылка, " +
+            "ver AS (SELECT МоментВремени, Идентификатор, ДатаВремя, Отправитель, Получатели, Заголовки, ТипСообщения, ТелоСообщения, Ссылка, " +
             "MIN(МоментВремени) OVER(PARTITION BY Ссылка) AS \"Версия\" FROM del) " +
-            "SELECT МоментВремени, Идентификатор, ДатаВремя, Заголовки, ТипСообщения, ТелоСообщения, Ссылка FROM ver " +
+            "SELECT МоментВремени, Идентификатор, ДатаВремя, Отправитель, Получатели, Заголовки, ТипСообщения, ТелоСообщения, Ссылка FROM ver " +
             "WHERE ТелоСообщения <> '' OR МоментВремени = Версия ORDER BY МоментВремени ASC, Идентификатор ASC;";
 
         public override string GetSelectDataRowsScript(DatabaseProvider provider)
@@ -90,6 +103,8 @@ namespace DaJet.Data.Messaging.V12
 
             message.MessageNumber = source.IsDBNull("МоментВремени") ? 0L : (long)source.GetDecimal("МоментВремени");
             message.Uuid = source.IsDBNull("Идентификатор") ? Guid.Empty : new Guid((byte[])source["Идентификатор"]);
+            message.Sender = source.IsDBNull("Отправитель") ? string.Empty : source.GetString("Отправитель");
+            message.Recipients = source.IsDBNull("Получатели") ? string.Empty : source.GetString("Получатели");
             message.Headers = source.IsDBNull("Заголовки") ? string.Empty : source.GetString("Заголовки");
             message.MessageType = source.IsDBNull("ТипСообщения") ? string.Empty : source.GetString("ТипСообщения");
             message.MessageBody = source.IsDBNull("ТелоСообщения") ? string.Empty : source.GetString("ТелоСообщения");

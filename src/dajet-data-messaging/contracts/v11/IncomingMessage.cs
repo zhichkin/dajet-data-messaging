@@ -55,6 +55,10 @@ namespace DaJet.Data.Messaging.V11
         /// "КоличествоОшибок" Количество неудачных попыток обработки сообщения - numeric(2,0)
         /// </summary>
         [Column("КоличествоОшибок")] public int ErrorCount { get; set; } = 0;
+        /// <summary>
+        /// "ТипОперации" Тип операции: INSERT, UPDATE или DELETE - nvarchar(6)
+        /// </summary>
+        [Column("ТипОперации")] public string OperationType { get; set; } = string.Empty;
 
         #endregion
 
@@ -62,16 +66,19 @@ namespace DaJet.Data.Messaging.V11
 
         private const string MS_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT {TABLE_NAME} " +
-            "({МоментВремени}, {Идентификатор}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({МоментВремени}, {Идентификатор}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, " +
+            "{ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}, {ТипОперации}) " +
             "SELECT NEXT VALUE FOR DaJetIncomingQueueSequence, " +
-            "@Идентификатор, @Заголовки, @Отправитель, @ТипСообщения, @ТелоСообщения, @ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок;";
+            "@Идентификатор, @Заголовки, @Отправитель, @ТипСообщения, @ТелоСообщения, " +
+            "@ДатаВремя, @ОписаниеОшибки, @КоличествоОшибок, @ТипОперации;";
 
         private const string PG_INCOMING_QUEUE_INSERT_SCRIPT_TEMPLATE =
             "INSERT INTO {TABLE_NAME} " +
-            "({МоментВремени}, {Идентификатор}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}) " +
+            "({МоментВремени}, {Идентификатор}, {Заголовки}, {Отправитель}, {ТипСообщения}, {ТелоСообщения}, " +
+            "{ДатаВремя}, {ОписаниеОшибки}, {КоличествоОшибок}, {ТипОперации}) " +
             "SELECT CAST(nextval('DaJetIncomingQueueSequence') AS numeric(19,0)), " +
             "@Идентификатор, CAST(@Заголовки AS mvarchar), CAST(@Отправитель AS mvarchar), CAST(@ТипСообщения AS mvarchar), " +
-            "CAST(@ТелоСообщения AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок;";
+            "CAST(@ТелоСообщения AS mvarchar), @ДатаВремя, CAST(@ОписаниеОшибки AS mvarchar), @КоличествоОшибок, CAST(@ТипОперации AS mvarchar);";
 
         public override string GetInsertScript(DatabaseProvider provider)
         {
@@ -98,6 +105,7 @@ namespace DaJet.Data.Messaging.V11
                 ms.Parameters.Add("ДатаВремя", SqlDbType.DateTime2);
                 ms.Parameters.Add("ОписаниеОшибки", SqlDbType.NVarChar);
                 ms.Parameters.Add("КоличествоОшибок", SqlDbType.Int);
+                ms.Parameters.Add("ТипОперации", SqlDbType.NVarChar);
             }
             else if (command is NpgsqlCommand pg)
             {
@@ -109,6 +117,7 @@ namespace DaJet.Data.Messaging.V11
                 pg.Parameters.Add("ДатаВремя", NpgsqlDbType.Timestamp);
                 pg.Parameters.Add("ОписаниеОшибки", NpgsqlDbType.Varchar);
                 pg.Parameters.Add("КоличествоОшибок", NpgsqlDbType.Integer);
+                pg.Parameters.Add("ТипОперации", NpgsqlDbType.Varchar);
             }
         }
         public override void SetMessageData<T>(in IncomingMessageDataMapper source, in T target)
@@ -126,6 +135,7 @@ namespace DaJet.Data.Messaging.V11
             target.Parameters["ДатаВремя"].Value = message.DateTimeStamp;
             target.Parameters["ОписаниеОшибки"].Value = message.ErrorDescription;
             target.Parameters["КоличествоОшибок"].Value = message.ErrorCount;
+            target.Parameters["ТипОперации"].Value = message.OperationType;
         }
 
         #endregion

@@ -193,7 +193,8 @@ namespace DaJet.Data.Messaging.Test
                         MessageBody = $"{{ \"message\": {(i + 1)} }}",
                         DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset),
                         ErrorCount = 0,
-                        ErrorDescription = string.Empty
+                        ErrorDescription = string.Empty,
+                        OperationType = "INSERT",
                     };
                 }
                 else if (version == 12)

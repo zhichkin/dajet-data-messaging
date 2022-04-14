@@ -106,11 +106,11 @@ namespace DaJet.Data.Messaging.V11
         private const string CREATE_OUTGOING_TRIGGER_SCRIPT =
             "CREATE TRIGGER {TRIGGER_NAME} ON {TABLE_NAME} INSTEAD OF INSERT NOT FOR REPLICATION AS " +
             "INSERT {TABLE_NAME} " +
-            "({МоментВремени}, {Идентификатор}, {Заголовки}, {УдалитьОтправитель}, {УдалитьПолучатели}, " +
-            "{ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {Ссылка}) " +
+            "({МоментВремени}, {Идентификатор}, {Заголовки}, {Отправитель}, {Получатели}, " +
+            "{ТипСообщения}, {ТелоСообщения}, {ДатаВремя}, {Ссылка}, {ТипОперации}) " +
             "SELECT NEXT VALUE FOR DaJetOutgoingQueueSequence, " +
-            "i.{Идентификатор}, i.{Заголовки}, i.{УдалитьОтправитель}, i.{УдалитьПолучатели}, " +
-            "i.{ТипСообщения}, i.{ТелоСообщения}, i.{ДатаВремя}, i.{Ссылка} " +
+            "i.{Идентификатор}, i.{Заголовки}, i.{Отправитель}, i.{Получатели}, " +
+            "i.{ТипСообщения}, i.{ТелоСообщения}, i.{ДатаВремя}, i.{Ссылка}, i.{ТипОперации} " +
             "FROM inserted AS i;";
 
         private const string ENABLE_OUTGOING_TRIGGER_SCRIPT = "ENABLE TRIGGER {TRIGGER_NAME} ON {TABLE_NAME};";
