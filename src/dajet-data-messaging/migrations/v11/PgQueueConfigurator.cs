@@ -105,6 +105,14 @@ namespace DaJet.Data.Messaging.V11
         private const string CREATE_OUTGOING_TRIGGER_SCRIPT =
             "CREATE TRIGGER {TRIGGER_NAME} BEFORE INSERT ON {TABLE_NAME} FOR EACH ROW EXECUTE PROCEDURE {FUNCTION_NAME};";
 
+        private const string SELECT_OUTGOING_TRIGGER_NAME_SCRIPT =
+            "SELECT trigger_name" +
+            "  FROM information_schema.triggers" +
+            " WHERE event_object_table = '{TABLE_NAME}'" +
+            "   AND event_manipulation = 'INSERT'" +
+            "   AND action_orientation = 'ROW'" +
+            "   AND action_timing      = 'BEFORE';";
+
         public void ConfigureOutgoingMessageQueue(in ApplicationObject queue, out List<string> errors)
         {
             errors = new List<string>();
@@ -132,8 +140,32 @@ namespace DaJet.Data.Messaging.V11
 
             return (_executor.ExecuteScalar<int>(scripts[0], 10) == 1);
         }
+        private void DropOutgoingTriggerIfExists(in ApplicationObject queue)
+        {
+            List<string> templates = new List<string>()
+            {
+                SELECT_OUTGOING_TRIGGER_NAME_SCRIPT
+            };
+
+            _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);
+
+            string triggerName = _executor.ExecuteScalar<string>(scripts[0], 10);
+
+            if (string.IsNullOrEmpty(triggerName))
+            {
+                return;
+            }
+
+            string script = DROP_OUTGOING_TRIGGER_SCRIPT
+                .Replace("{TRIGGER_NAME}", triggerName)
+                .Replace("{TABLE_NAME}", queue.TableName);
+
+            _executor.ExecuteNonQuery(script, 10);
+        }
         private void ConfigureOutgoingQueue(in ApplicationObject queue)
         {
+            DropOutgoingTriggerIfExists(in queue);
+
             List<string> templates = new List<string>
             {
                 CREATE_OUTGOING_SEQUENCE_SCRIPT,

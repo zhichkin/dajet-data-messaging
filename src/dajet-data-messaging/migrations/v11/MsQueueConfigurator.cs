@@ -115,6 +115,14 @@ namespace DaJet.Data.Messaging.V11
 
         private const string ENABLE_OUTGOING_TRIGGER_SCRIPT = "ENABLE TRIGGER {TRIGGER_NAME} ON {TABLE_NAME};";
 
+        private const string SELECT_OUTGOING_TRIGGER_NAME_SCRIPT =
+            "SELECT t.name AS [trigger_name]" +
+            "  FROM sys.triggers AS t" +
+            " INNER JOIN sys.trigger_events AS e ON t.object_id = e.object_id" +
+            " WHERE t.is_instead_of_trigger = 1" +
+            "   AND e.type = 1" + /* INSERT */
+            "   AND t.parent_id = OBJECT_ID('{TABLE_NAME}', 'U');";
+
         public void ConfigureOutgoingMessageQueue(in ApplicationObject queue, out List<string> errors)
         {
             errors = new List<string>();
@@ -142,8 +150,30 @@ namespace DaJet.Data.Messaging.V11
 
             return (_executor.ExecuteScalar<int>(scripts[0], 10) == 1);
         }
+        private void DropOutgoingTriggerIfExists(in ApplicationObject queue)
+        {
+            List<string> templates = new List<string>()
+            {
+                SELECT_OUTGOING_TRIGGER_NAME_SCRIPT
+            };
+
+            _builder.ConfigureScripts(in templates, in queue, out List<string> scripts);
+
+            string triggerName = _executor.ExecuteScalar<string>(scripts[0], 10);
+
+            if (string.IsNullOrEmpty(triggerName))
+            {
+                return;
+            }
+
+            string script = DROP_OUTGOING_TRIGGER_SCRIPT.Replace("{TRIGGER_NAME}", triggerName);
+            
+            _executor.ExecuteNonQuery(script, 10);
+        }
         private void ConfigureOutgoingQueue(in ApplicationObject queue)
         {
+            DropOutgoingTriggerIfExists(in queue);
+
             List<string> templates = new List<string>()
             {
                 CREATE_OUTGOING_SEQUENCE_SCRIPT,
