@@ -153,6 +153,7 @@ namespace DaJet.Data.Messaging.Test
             }
         }
 
+        long current = 0L;
         private IEnumerable<IncomingMessageDataMapper> GetTestIncomingMessages(int version)
         {
             for (int i = 0; i < 10; i++)
@@ -244,47 +245,71 @@ namespace DaJet.Data.Messaging.Test
         [TestMethod] public void MessageConsumer_Select()
         {
             int total = 0;
-
+            
             ApplicationObject queue;
-            List<int> versions = new List<int>() { 1, 10, 11, 12 };
+            List<int> versions = new List<int>() { 10 }; //{ 1, 10, 11, 12 };
 
-            foreach (int version in versions)
+            do
             {
-                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
-
-                Console.WriteLine($"Consume, version {version}: {queue.Name} [{queue.TableName}]");
-
-                using (IMessageConsumer consumer = new PgMessageConsumer(PG_CONNECTION_STRING, in queue))
+                foreach (int version in versions)
                 {
-                    do
-                    {
-                        consumer.TxBegin();
-                        foreach (OutgoingMessageDataMapper message in consumer.Select())
-                        {
-                            ShowMessageData(in message);
-                            total++;
-                        }
-                        consumer.TxCommit();
+                    queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
 
-                        Console.WriteLine($"Count [{version}] = {consumer.RecordsAffected}");
+                    Console.WriteLine($"Consume, version {version}: {queue.Name} [{queue.TableName}]");
+
+                    using (IMessageConsumer consumer = new PgMessageConsumer(PG_CONNECTION_STRING, in queue))
+                    {
+                        do
+                        {
+                            total = 0;
+                            consumer.TxBegin();
+                            foreach (OutgoingMessageDataMapper message in consumer.Select())
+                            {
+                                ShowMessageData(in message);
+                                total++;
+                            }
+                            consumer.TxCommit();
+
+                            Console.WriteLine($"Count [{version}] = {consumer.RecordsAffected}");
+                        }
+                        while (consumer.RecordsAffected > 0);
                     }
-                    while (consumer.RecordsAffected > 0);
                 }
 
-                Console.WriteLine($"Total [{version}] = {total}");
-                Console.WriteLine();
+                //Console.WriteLine($"Total [{version}] = {total}");
+                //Console.WriteLine();
             }
+            while (total > 0);
+
+            Console.WriteLine($"Total = {total}");
         }
         private void ShowMessageData(in OutgoingMessageDataMapper message)
         {
-            Type type = message.GetType();
+            V10.OutgoingMessage msg = message as V10.OutgoingMessage;
 
-            foreach (PropertyInfo property in type.GetProperties())
+            if (msg == null) return;
+
+            if (current == 0L)
             {
-                Console.WriteLine($"{property.Name} = {property.GetValue(message)}");
+                current = msg.MessageNumber;
+                return;
             }
 
-            Console.WriteLine();
+            if (current > msg.MessageNumber)
+            {
+                Console.WriteLine($"{current} > {msg.MessageNumber}");
+            }
+
+            current = msg.MessageNumber;
+
+            //Type type = message.GetType();
+
+            //foreach (PropertyInfo property in type.GetProperties())
+            //{
+            //    Console.WriteLine($"{property.Name} = {property.GetValue(message)}");
+            //}
+
+            //Console.WriteLine();
         }
 
         [TestMethod] public void Settings_Publication()
