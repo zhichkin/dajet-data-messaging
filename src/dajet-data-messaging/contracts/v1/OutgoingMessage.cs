@@ -49,11 +49,18 @@ namespace DaJet.Data.Messaging.V1
             "deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[Ссылка], deleted.[ДатаВремя];";
 
         private const string PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
-            "WITH cte AS (SELECT {НомерСообщения}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC LIMIT @MessageCount) " +
-            "DELETE FROM {TABLE_NAME} t USING cte WHERE t.{НомерСообщения} = cte.{НомерСообщения} AND t.{Идентификатор} = cte.{Идентификатор} " +
-            "RETURNING t.{НомерСообщения} AS \"НомерСообщения\", t.{Идентификатор} AS \"Идентификатор\", CAST(t.{Заголовки} AS text) AS \"Заголовки\", " +
-            "CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", " +
-            "t.{Ссылка} AS \"Ссылка\", t.{ДатаВремя} AS \"ДатаВремя\";";
+            "WITH cte AS (SELECT {НомерСообщения}, {Идентификатор} " +
+            "FROM {TABLE_NAME} ORDER BY {НомерСообщения} ASC, {Идентификатор} ASC LIMIT @MessageCount), " +
+            "del AS (DELETE FROM {TABLE_NAME} t USING cte " +
+            "WHERE t.{НомерСообщения} = cte.{НомерСообщения} AND t.{Идентификатор} = cte.{Идентификатор} " +
+            "RETURNING t.{НомерСообщения}, t.{Идентификатор}, " +
+            "t.{Заголовки}, t.{ТипСообщения}, t.{ТелоСообщения}, " +
+            "t.{Ссылка}, t.{ДатаВремя}) " +
+            "SELECT del.{НомерСообщения} AS \"НомерСообщения\", del.{Идентификатор} AS \"Идентификатор\", " +
+            "CAST(del.{Заголовки} AS text) AS \"Заголовки\", " +
+            "CAST(del.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(del.{ТелоСообщения} AS text) AS \"ТелоСообщения\", " +
+            "del.{Ссылка} AS \"Ссылка\", del.{ДатаВремя} AS \"ДатаВремя\" " +
+            "FROM del ORDER BY del.{НомерСообщения} ASC;";
 
         public override string GetSelectDataRowsScript(DatabaseProvider provider)
         {

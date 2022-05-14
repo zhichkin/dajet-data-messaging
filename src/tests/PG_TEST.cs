@@ -245,71 +245,64 @@ namespace DaJet.Data.Messaging.Test
         [TestMethod] public void MessageConsumer_Select()
         {
             int total = 0;
-            
+
             ApplicationObject queue;
-            List<int> versions = new List<int>() { 10 }; //{ 1, 10, 11, 12 };
+            List<int> versions = new List<int>() { 1, 10, 11, 12 };
 
-            do
+            foreach (int version in versions)
             {
-                foreach (int version in versions)
+                queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
+
+                Console.WriteLine($"Consume, version {version}: {queue.Name} [{queue.TableName}]");
+
+                using (IMessageConsumer consumer = new PgMessageConsumer(PG_CONNECTION_STRING, in queue))
                 {
-                    queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.»сход€ща€ќчередь{version}");
-
-                    Console.WriteLine($"Consume, version {version}: {queue.Name} [{queue.TableName}]");
-
-                    using (IMessageConsumer consumer = new PgMessageConsumer(PG_CONNECTION_STRING, in queue))
+                    do
                     {
-                        do
+                        consumer.TxBegin();
+                        foreach (OutgoingMessageDataMapper message in consumer.Select())
                         {
-                            total = 0;
-                            consumer.TxBegin();
-                            foreach (OutgoingMessageDataMapper message in consumer.Select())
-                            {
-                                ShowMessageData(in message);
-                                total++;
-                            }
-                            consumer.TxCommit();
-
-                            Console.WriteLine($"Count [{version}] = {consumer.RecordsAffected}");
+                            ShowMessageData(in message);
+                            total++;
                         }
-                        while (consumer.RecordsAffected > 0);
+                        consumer.TxCommit();
+
+                        Console.WriteLine($"Count [{version}] = {consumer.RecordsAffected}");
                     }
+                    while (consumer.RecordsAffected > 0);
                 }
 
-                //Console.WriteLine($"Total [{version}] = {total}");
-                //Console.WriteLine();
+                Console.WriteLine($"Total [{version}] = {total}");
+                Console.WriteLine();
             }
-            while (total > 0);
-
-            Console.WriteLine($"Total = {total}");
         }
         private void ShowMessageData(in OutgoingMessageDataMapper message)
         {
-            V10.OutgoingMessage msg = message as V10.OutgoingMessage;
+            //V10.OutgoingMessage msg = message as V10.OutgoingMessage;
 
-            if (msg == null) return;
+            //if (msg == null) return;
 
-            if (current == 0L)
-            {
-                current = msg.MessageNumber;
-                return;
-            }
-
-            if (current > msg.MessageNumber)
-            {
-                Console.WriteLine($"{current} > {msg.MessageNumber}");
-            }
-
-            current = msg.MessageNumber;
-
-            //Type type = message.GetType();
-
-            //foreach (PropertyInfo property in type.GetProperties())
+            //if (current == 0L)
             //{
-            //    Console.WriteLine($"{property.Name} = {property.GetValue(message)}");
+            //    current = msg.MessageNumber;
+            //    return;
             //}
 
-            //Console.WriteLine();
+            //if (current > msg.MessageNumber)
+            //{
+            //    Console.WriteLine($"{current} > {msg.MessageNumber}");
+            //}
+
+            //current = msg.MessageNumber;
+
+            Type type = message.GetType();
+
+            foreach (PropertyInfo property in type.GetProperties())
+            {
+                Console.WriteLine($"{property.Name} = {property.GetValue(message)}");
+            }
+
+            Console.WriteLine();
         }
 
         [TestMethod] public void Settings_Publication()

@@ -101,13 +101,20 @@ namespace DaJet.Data.Messaging.V11
             "deleted.[Получатели], deleted.[ТипОперации], deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[Заголовки];";
 
         private const string PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
-            "WITH cte AS (SELECT {МоментВремени}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {МоментВремени} ASC, {Идентификатор} ASC LIMIT @MessageCount) " +
-            "DELETE FROM {TABLE_NAME} t USING cte WHERE t.{МоментВремени} = cte.{МоментВремени} AND t.{Идентификатор} = cte.{Идентификатор} " +
-            "RETURNING t.{МоментВремени} AS \"МоментВремени\", t.{Идентификатор} AS \"Идентификатор\", " +
-            "t.{ДатаВремя} AS \"ДатаВремя\", CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", CAST(t.{Заголовки} AS varchar) AS \"Заголовки\", " +
-            "CAST(t.{Получатели} AS varchar) AS \"Получатели\", CAST(t.{ТипОперации} AS varchar) AS \"ТипОперации\", " +
-            "CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\";";
-
+            "WITH cte AS (SELECT {МоментВремени}, {Идентификатор} " +
+            "FROM {TABLE_NAME} ORDER BY {МоментВремени} ASC, {Идентификатор} ASC LIMIT @MessageCount), " +
+            "del AS (DELETE FROM {TABLE_NAME} t USING cte " +
+            "WHERE t.{МоментВремени} = cte.{МоментВремени} AND t.{Идентификатор} = cte.{Идентификатор} " +
+            "RETURNING t.{МоментВремени}, t.{Идентификатор}, " +
+            "t.{ДатаВремя}, t.{Отправитель}, t.{Заголовки}, " +
+            "t.{Получатели}, t.{ТипОперации}, " +
+            "t.{ТипСообщения}, t.{ТелоСообщения}) " +
+            "SELECT del.{МоментВремени} AS \"МоментВремени\", del.{Идентификатор} AS \"Идентификатор\", " +
+            "del.{ДатаВремя} AS \"ДатаВремя\", CAST(del.{Отправитель} AS varchar) AS \"Отправитель\", " +
+            "CAST(del.{Заголовки} AS text) AS \"Заголовки\", " +
+            "CAST(del.{Получатели} AS text) AS \"Получатели\", CAST(del.{ТипОперации} AS varchar) AS \"ТипОперации\", " +
+            "CAST(del.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(del.{ТелоСообщения} AS text) AS \"ТелоСообщения\" " +
+            "FROM del ORDER BY del.{МоментВремени} ASC;";
         public override string GetSelectDataRowsScript(DatabaseProvider provider)
         {
             if (provider == DatabaseProvider.SQLServer)

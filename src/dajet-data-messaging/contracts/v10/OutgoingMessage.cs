@@ -12,7 +12,7 @@ namespace DaJet.Data.Messaging.V10
     /// </summary>
     [Table("РегистрСведений.ИсходящаяОчередь")] [Version(10)] public sealed class OutgoingMessage : OutgoingMessageDataMapper
     {
-        #region "INSTANCE PROPERTIES"
+        #region "DATA CONTRACT - INSTANCE PROPERTIES"
 
         /// <summary>
         /// "МоментВремени" Порядковый номер сообщения (может генерироваться средствами СУБД) - numeric(19,0)
@@ -47,7 +47,7 @@ namespace DaJet.Data.Messaging.V10
 
         #endregion
 
-        #region "DATA MAPPING"
+        #region "DATA MAPPING - SELECT QUERY"
 
         private const string MS_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
             "WITH cte AS (SELECT TOP (@MessageCount) " +
@@ -57,14 +57,6 @@ namespace DaJet.Data.Messaging.V10
             "FROM {TABLE_NAME} WITH (ROWLOCK, READPAST) ORDER BY {МоментВремени} ASC, {Идентификатор} ASC) " +
             "DELETE cte OUTPUT deleted.[МоментВремени], deleted.[Идентификатор], deleted.[ДатаВремя], deleted.[Отправитель], " +
             "deleted.[Получатели], deleted.[ТипОперации], deleted.[ТипСообщения], deleted.[ТелоСообщения];";
-
-        //private const string PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
-        //    "WITH cte AS (SELECT {МоментВремени}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {МоментВремени} ASC, {Идентификатор} ASC LIMIT @MessageCount) " +
-        //    "DELETE FROM {TABLE_NAME} t USING cte WHERE t.{МоментВремени} = cte.{МоментВремени} AND t.{Идентификатор} = cte.{Идентификатор} " +
-        //    "RETURNING t.{МоментВремени} AS \"МоментВремени\", t.{Идентификатор} AS \"Идентификатор\", " +
-        //    "t.{ДатаВремя} AS \"ДатаВремя\", CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", " +
-        //    "CAST(t.{Получатели} AS varchar) AS \"Получатели\", CAST(t.{ТипОперации} AS varchar) AS \"ТипОперации\", " +
-        //    "CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\";";
 
         private const string PG_OUTGOING_QUEUE_SELECT_SCRIPT_TEMPLATE =
             "WITH cte AS (SELECT {МоментВремени}, {Идентификатор} " +
@@ -77,7 +69,7 @@ namespace DaJet.Data.Messaging.V10
             "t.{ТипСообщения}, t.{ТелоСообщения}) " +
             "SELECT del.{МоментВремени} AS \"МоментВремени\", del.{Идентификатор} AS \"Идентификатор\", " +
             "del.{ДатаВремя} AS \"ДатаВремя\", CAST(del.{Отправитель} AS varchar) AS \"Отправитель\", " +
-            "CAST(del.{Получатели} AS varchar) AS \"Получатели\", CAST(del.{ТипОперации} AS varchar) AS \"ТипОперации\", " +
+            "CAST(del.{Получатели} AS text) AS \"Получатели\", CAST(del.{ТипОперации} AS varchar) AS \"ТипОперации\", " +
             "CAST(del.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(del.{ТелоСообщения} AS text) AS \"ТелоСообщения\" " +
             "FROM del ORDER BY del.{МоментВремени} ASC;";
 
