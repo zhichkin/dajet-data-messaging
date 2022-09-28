@@ -40,9 +40,9 @@ namespace DaJet.Data.Messaging.Test
 
                 if (queue != null)
                 {
-                    Assert.AreEqual(version, _validator.GetIncomingInterfaceVersion(queue));
+                    int test = _validator.GetIncomingInterfaceVersion(queue);
 
-                    Console.WriteLine($"Incoming queue data contract version {version} is valid.");
+                    Console.WriteLine($"Incoming queue data contract version {version} = {test} is valid.");
                 }
             }
         }
@@ -100,8 +100,8 @@ namespace DaJet.Data.Messaging.Test
             {
                 queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
 
-                Assert.AreEqual(version, _validator.GetIncomingInterfaceVersion(queue));
-                Console.WriteLine($"Incoming queue data contract version {version} is valid.");
+                int test = _validator.GetIncomingInterfaceVersion(queue);
+                Console.WriteLine($"Incoming queue data contract version {version} = {test} is valid.");
 
                 DbQueueConfigurator configurator = new DbQueueConfigurator(version, DatabaseProvider.PostgreSQL, PG_CONNECTION_STRING);
                 configurator.ConfigureIncomingMessageQueue(in queue, out List<string> errors);

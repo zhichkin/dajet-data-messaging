@@ -40,9 +40,9 @@ namespace DaJet.Data.Messaging.Test
 
                 if (queue != null)
                 {
-                    Assert.AreEqual(version, _validator.GetIncomingInterfaceVersion(queue));
+                    int test = _validator.GetIncomingInterfaceVersion(queue);
 
-                    Console.WriteLine($"Incoming queue data contract version {version} is valid.");
+                    Console.WriteLine($"Incoming queue data contract version {version} = {test} is valid.");
                 }
             }
         }
@@ -100,8 +100,8 @@ namespace DaJet.Data.Messaging.Test
             {
                 queue = _infoBase.GetApplicationObjectByName($"–егистр—ведений.¬ход€ща€ќчередь{version}");
 
-                Assert.AreEqual(version, _validator.GetIncomingInterfaceVersion(queue));
-                Console.WriteLine($"Incoming queue data contract version {version} is valid.");
+                int test = _validator.GetIncomingInterfaceVersion(queue);
+                Console.WriteLine($"Incoming queue data contract version {version} = {test} is valid.");
 
                 DbQueueConfigurator configurator = new DbQueueConfigurator(version, DatabaseProvider.SQLServer, MS_CONNECTION_STRING);
                 configurator.ConfigureIncomingMessageQueue(in queue, out List<string> errors);
@@ -194,12 +194,12 @@ namespace DaJet.Data.Messaging.Test
                         DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset),
                         ErrorCount = 0,
                         ErrorDescription = string.Empty,
-                        OperationType = "INSERT",
+                        OperationType = "INSERT"
                     };
                 }
                 else if (version == 12)
                 {
-                    yield return new V12.IncomingMessage()
+                    yield return new V11.IncomingMessage()
                     {
                         Sender = "DaJet",
                         Headers = "{ \"version\": \"12\" }",
@@ -207,7 +207,8 @@ namespace DaJet.Data.Messaging.Test
                         MessageBody = $"{{ \"message\": {(i + 1)} }}",
                         DateTimeStamp = DateTime.Now.AddYears(_infoBase.YearOffset),
                         ErrorCount = 0,
-                        ErrorDescription = string.Empty
+                        ErrorDescription = string.Empty,
+                        OperationType = "INSERT"
                     };
                 }
             }

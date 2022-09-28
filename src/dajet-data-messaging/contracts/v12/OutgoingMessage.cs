@@ -41,47 +41,51 @@ namespace DaJet.Data.Messaging.V12
         /// </summary>
         [Column("ДатаВремя")] public DateTime DateTimeStamp { get; set; } = DateTime.Now;
         /// <summary>
-        /// "ИдентификаторОбъекта" Уникальный идентификатор объекта 1С в теле сообщения - binary(16)
+        /// "ТипОперации" Тип операции: INSERT, UPDATE или DELETE - nvarchar(6)
         /// </summary>
-        [Column("Ссылка")] public Guid Reference { get; set; } = Guid.Empty;
+        [Column("ТипОперации")] public string OperationType { get; set; } = string.Empty;
+        /// <summary>
+        /// "ОписаниеОшибки" Описание ошибки, возникшей при обработке сообщения - nvarchar(1024)
+        /// </summary>
+        [Column("ОписаниеОшибки")] public string ErrorDescription { get; set; } = string.Empty;
+        /// <summary>
+        /// "КоличествоОшибок" Количество неудачных попыток обработки сообщения - numeric(2,0)
+        /// </summary>
+        [Column("КоличествоОшибок")] public int ErrorCount { get; set; } = 0;
 
         #endregion
 
         #region "DATA MAPPING - SELECT QUERY"
 
         private const string MS_OUTGOING_QUEUE_COMPACTION_SELECT_SCRIPT_TEMPLATE =
-            "DECLARE @messages TABLE " +
-            "([МоментВремени] numeric(19,0), [Идентификатор] binary(16), [ДатаВремя] datetime2, " +
-            "[Отправитель] nvarchar(36), [Получатели] nvarchar(max), [Заголовки] nvarchar(max), " +
-            "[ТипСообщения] nvarchar(1024), [ТелоСообщения] nvarchar(max), [Ссылка] binary(16)); " +
             "WITH cte AS (SELECT TOP (@MessageCount) " +
-            "{МоментВремени} AS [МоментВремени], {Идентификатор} AS [Идентификатор], {ДатаВремя} AS [ДатаВремя], " +
-            "{Отправитель} AS [Отправитель], {Получатели} AS [Получатели], {Заголовки} AS [Заголовки], " +
-            "{ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], {Ссылка} AS [Ссылка] " +
+            "{МоментВремени} AS [МоментВремени], {Идентификатор} AS [Идентификатор], " +
+            "{Заголовки} AS [Заголовки], {Отправитель} AS [Отправитель], {Получатели} AS [Получатели], " +
+            "{ТипСообщения} AS [ТипСообщения], {ТелоСообщения} AS [ТелоСообщения], " +
+            "{ДатаВремя} AS [ДатаВремя], {ТипОперации} AS [ТипОперации], " +
+            "{ОписаниеОшибки} AS [ОписаниеОшибки], {КоличествоОшибок} AS [КоличествоОшибок] " +
             "FROM {TABLE_NAME} WITH (ROWLOCK, READPAST) ORDER BY {МоментВремени} ASC, {Идентификатор} ASC) " +
-            "DELETE cte OUTPUT " +
-            "deleted.[МоментВремени], deleted.[Идентификатор], deleted.[ДатаВремя], deleted.[Отправитель], " +
-            "deleted.[Получатели], deleted.[Заголовки], deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[Ссылка] " +
-            "INTO @messages; " +
-            "SELECT [МоментВремени], [Идентификатор], [ДатаВремя], [Отправитель], [Получатели], " +
-            "[Заголовки], [ТипСообщения], [ТелоСообщения], [Ссылка] " +
-            "FROM (SELECT [МоментВремени], [Идентификатор], [ДатаВремя], [Отправитель], [Получатели], " +
-            "[Заголовки], [ТипСообщения], [ТелоСообщения], [Ссылка], " +
-            "MIN([МоментВремени]) OVER(PARTITION BY [Ссылка]) AS [Версия] FROM @messages) AS T " +
-            "WHERE [ТелоСообщения] <> '' OR [МоментВремени] = [Версия] ORDER BY [МоментВремени] ASC, [Идентификатор] ASC;";
+            "DELETE cte OUTPUT deleted.[МоментВремени], deleted.[Идентификатор], " +
+            "deleted.[Заголовки], deleted.[Отправитель], deleted.[Получатели], " +
+            "deleted.[ТипСообщения], deleted.[ТелоСообщения], deleted.[ДатаВремя], deleted.[ТипОперации], " +
+            "deleted.[ОписаниеОшибки], deleted.[КоличествоОшибок];";
 
         private const string PG_OUTGOING_QUEUE_COMPACTION_SELECT_SCRIPT_TEMPLATE =
-            "WITH " +
-            "cte AS (SELECT {МоментВремени}, {Идентификатор} FROM {TABLE_NAME} ORDER BY {МоментВремени} ASC, {Идентификатор} ASC LIMIT @MessageCount), " +
-            "del AS (DELETE FROM {TABLE_NAME} t USING cte WHERE t.{МоментВремени} = cte.{МоментВремени} AND t.{Идентификатор} = cte.{Идентификатор} " +
-            "RETURNING t.{МоментВремени} AS \"МоментВремени\", t.{Идентификатор} AS \"Идентификатор\", t.{ДатаВремя} AS \"ДатаВремя\", " +
-            "CAST(t.{Отправитель} AS varchar) AS \"Отправитель\", CAST(t.{Получатели} AS varchar) AS \"Получатели\", " +
-            "CAST(t.{Заголовки} AS text) AS \"Заголовки\", CAST(t.{ТипСообщения} AS varchar) AS \"ТипСообщения\", " +
-            "CAST(t.{ТелоСообщения} AS text) AS \"ТелоСообщения\", t.{Ссылка} AS \"Ссылка\"), " +
-            "ver AS (SELECT МоментВремени, Идентификатор, ДатаВремя, Отправитель, Получатели, Заголовки, ТипСообщения, ТелоСообщения, Ссылка, " +
-            "MIN(МоментВремени) OVER(PARTITION BY Ссылка) AS \"Версия\" FROM del) " +
-            "SELECT МоментВремени, Идентификатор, ДатаВремя, Отправитель, Получатели, Заголовки, ТипСообщения, ТелоСообщения, Ссылка FROM ver " +
-            "WHERE ТелоСообщения <> '' OR МоментВремени = Версия ORDER BY МоментВремени ASC, Идентификатор ASC;";
+            "WITH cte AS (SELECT {МоментВремени}, {Идентификатор} " +
+            "FROM {TABLE_NAME} ORDER BY {МоментВремени} ASC, {Идентификатор} ASC LIMIT @MessageCount), " +
+            "del AS (DELETE FROM {TABLE_NAME} t USING cte " +
+            "WHERE t.{МоментВремени} = cte.{МоментВремени} AND t.{Идентификатор} = cte.{Идентификатор} " +
+            "RETURNING t.{МоментВремени}, t.{Идентификатор}, " +
+            "t.{Заголовки}, t.{Отправитель}, t.{Получатели}, " +
+            "t.{ТипСообщения}, t.{ТелоСообщения}, " +
+            "t.{ДатаВремя}, t.{ТипОперации}, t.{ОписаниеОшибки}, t.{КоличествоОшибок}) " +
+            "SELECT del.{МоментВремени} AS \"МоментВремени\", del.{Идентификатор} AS \"Идентификатор\", " +
+            "CAST(del.{Заголовки} AS text) AS \"Заголовки\", " +
+            "CAST(del.{Отправитель} AS varchar) AS \"Отправитель\", CAST(del.{Получатели} AS text) AS \"Получатели\", " +
+            "CAST(del.{ТипСообщения} AS varchar) AS \"ТипСообщения\", CAST(del.{ТелоСообщения} AS text) AS \"ТелоСообщения\", " +
+            "del.{ДатаВремя} AS \"ДатаВремя\", CAST(del.{ТипОперации} AS varchar) AS \"ТипОперации\", " +
+            "CAST(del.{ОписаниеОшибки} AS varchar) AS \"ОписаниеОшибки\", del.{КоличествоОшибок} AS \"КоличествоОшибок\" " +
+            "FROM del ORDER BY del.{МоментВремени} ASC;";
 
         public override string GetSelectDataRowsScript(DatabaseProvider provider)
         {
@@ -109,7 +113,9 @@ namespace DaJet.Data.Messaging.V12
             message.MessageType = source.IsDBNull("ТипСообщения") ? string.Empty : source.GetString("ТипСообщения");
             message.MessageBody = source.IsDBNull("ТелоСообщения") ? string.Empty : source.GetString("ТелоСообщения");
             message.DateTimeStamp = source.IsDBNull("ДатаВремя") ? DateTime.MinValue : source.GetDateTime("ДатаВремя");
-            message.Reference = source.IsDBNull("Ссылка") ? Guid.Empty : new Guid((byte[])source["Ссылка"]);
+            message.OperationType = source.IsDBNull("ТипОперации") ? string.Empty : source.GetString("ТипОперации");
+            message.ErrorCount = source.IsDBNull("КоличествоОшибок") ? 0: (int)source.GetDecimal("КоличествоОшибок");
+            message.ErrorDescription = source.IsDBNull("ОписаниеОшибки") ? string.Empty : source.GetString("ОписаниеОшибки");
         }
 
         #endregion
